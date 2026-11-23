@@ -6,6 +6,12 @@
       "@/*": [
         "./src/*"
       ],
+      "@features/*": [
+        "./src/features/*"
+      ],
+      "@shared/*": [
+        "./src/shared/*"
+      ],
       "@/assets/*": [
         "./assets/*"
       ]

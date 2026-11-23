@@ -6,11 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "escrutinioelecciones",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.escrutinio.ruminahui",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -34,7 +35,19 @@
         }
       ],
       "expo-secure-store",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "La aplicación necesita acceso a la cámara para fotografiar las actas de escrutinio."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "La aplicación necesita tu ubicación GPS para verificar desde qué recinto se registra el acta."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
