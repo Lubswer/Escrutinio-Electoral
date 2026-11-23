@@ -14,7 +14,7 @@ export interface UserProfile {
   activo: boolean;
 }
 
-export interface ProvisionUserInput {
+export interface CreateSubordinateUserInput {
   cedula: string;
   nombres: string;
   apellidos: string;

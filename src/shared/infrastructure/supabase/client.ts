@@ -29,7 +29,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * Permite que un Coordinador registre a un subordinado (signUp)
  * sin cerrar ni sobrescribir su propia sesión activa.
  */
-export const supabaseProvisioningClient = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabaseNoSessionClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,

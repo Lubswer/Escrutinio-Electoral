@@ -1,4 +1,4 @@
-import { ProvisionUserInput, UserProfile } from '../entities/User';
+import { CreateSubordinateUserInput, UserProfile } from '../entities/User';
 
 export interface IAuthRepository {
   login(email: string, password: string): Promise<UserProfile>;
@@ -6,5 +6,5 @@ export interface IAuthRepository {
   getCurrentUser(): Promise<UserProfile | null>;
   changeFirstLoginPassword(newPassword: string): Promise<void>;
   sendPasswordResetEmail(email: string): Promise<void>;
-  provisionSubordinate(input: ProvisionUserInput, creatorId: string): Promise<UserProfile>;
+  createSubordinateUser(input: CreateSubordinateUserInput, creatorId: string): Promise<UserProfile>;
 }

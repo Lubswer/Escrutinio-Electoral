@@ -1,6 +1,6 @@
 import { AuthError } from '@shared/domain/errors/AppError';
-import { supabase, supabaseProvisioningClient } from '@shared/infrastructure/supabase/client';
-import { ProvisionUserInput, UserProfile, UserRole } from '../../domain/entities/User';
+import { supabase, supabaseNoSessionClient } from '@shared/infrastructure/supabase/client';
+import { CreateSubordinateUserInput, UserProfile, UserRole } from '../../domain/entities/User';
 import { IAuthRepository } from '../../domain/repositories/IAuthRepository';
 
 interface ProfileRow {
@@ -98,8 +98,11 @@ export class SupabaseAuthRepository implements IAuthRepository {
     }
   }
 
-  async provisionSubordinate(input: ProvisionUserInput, creatorId: string): Promise<UserProfile> {
-    const { data: authData, error: signUpError } = await supabaseProvisioningClient.auth.signUp({
+  async createSubordinateUser(
+    input: CreateSubordinateUserInput,
+    creatorId: string,
+  ): Promise<UserProfile> {
+    const { data: authData, error: signUpError } = await supabaseNoSessionClient.auth.signUp({
       email: input.email,
       password: input.claveTemporal,
     });

@@ -1,19 +1,19 @@
 import { PermissionError, ValidationError } from '@shared/domain/errors/AppError';
-import { ProvisionUserInput, UserProfile } from '../../domain/entities/User';
+import { CreateSubordinateUserInput, UserProfile } from '../../domain/entities/User';
 import { IAuthRepository } from '../../domain/repositories/IAuthRepository';
 import { IIdentityVerificationService } from '../../domain/services/IIdentityVerificationService';
 
 /**
  * RF-01, RF-03, RF-04, ADR-11:
- * Creación jerárquica de cuentas validando cédula y correo con APIs externas.
+ * Creación jerárquica de cuentas subordinadas validando cédula y correo con APIs externas.
  */
-export class ProvisionUserUseCase {
+export class CreateSubordinateUserUseCase {
   constructor(
     private readonly authRepo: IAuthRepository,
     private readonly identityService: IIdentityVerificationService,
   ) {}
 
-  async execute(input: ProvisionUserInput, creator: UserProfile): Promise<UserProfile> {
+  async execute(input: CreateSubordinateUserInput, creator: UserProfile): Promise<UserProfile> {
     if (creator.rol === 'veedor') {
       throw new PermissionError('Un veedor no puede crear cuentas.');
     }
@@ -22,8 +22,13 @@ export class ProvisionUserUseCase {
       throw new PermissionError('El coordinador provincial solo puede crear coordinadores de recinto.');
     }
 
-    if (creator.rol === 'coordinador_recinto' && input.rol !== 'veedor') {
-      throw new PermissionError('El coordinador de recinto solo puede crear veedores.');
+    if (creator.rol === 'coordinador_recinto') {
+      if (input.rol !== 'veedor') {
+        throw new PermissionError('El coordinador de recinto solo puede crear veedores.');
+      }
+      if (input.recintoId !== creator.recintoId) {
+        throw new PermissionError('Solo puedes crear veedores asignados a tu propio recinto.');
+      }
     }
 
     if (input.claveTemporal.length < 8) {
@@ -43,7 +48,7 @@ export class ProvisionUserUseCase {
       throw new ValidationError(emailCheck.message ?? 'El correo electrónico no pudo verificarse.');
     }
 
-    return this.authRepo.provisionSubordinate(
+    return this.authRepo.createSubordinateUser(
       {
         ...input,
         cedula: input.cedula.trim(),

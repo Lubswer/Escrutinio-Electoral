@@ -2,10 +2,10 @@ import { setMonitoringUser } from '@shared/infrastructure/monitoring/sentry';
 import { useMutation } from '@tanstack/react-query';
 import { Href, useRouter } from 'expo-router';
 import { ChangeFirstPasswordUseCase } from '../../application/use-cases/ChangeFirstPasswordUseCase';
+import { CreateSubordinateUserUseCase } from '../../application/use-cases/CreateSubordinateUserUseCase';
 import { LoginUseCase } from '../../application/use-cases/LoginUseCase';
-import { ProvisionUserUseCase } from '../../application/use-cases/ProvisionUserUseCase';
 import { RecoverPasswordUseCase } from '../../application/use-cases/RecoverPasswordUseCase';
-import { ProvisionUserInput, UserProfile, UserRole } from '../../domain/entities/User';
+import { CreateSubordinateUserInput, UserProfile, UserRole } from '../../domain/entities/User';
 import { SupabaseAuthRepository } from '../../infrastructure/repositories/SupabaseAuthRepository';
 import { ExternalIdentityService } from '../../infrastructure/services/ExternalIdentityService';
 import { useAuthStore } from '../store/authStore';
@@ -16,7 +16,7 @@ const identityService = new ExternalIdentityService();
 const loginUseCase = new LoginUseCase(authRepo);
 const changeFirstPasswordUseCase = new ChangeFirstPasswordUseCase(authRepo);
 const recoverPasswordUseCase = new RecoverPasswordUseCase(authRepo);
-const provisionUserUseCase = new ProvisionUserUseCase(authRepo, identityService);
+const createSubordinateUserUseCase = new CreateSubordinateUserUseCase(authRepo, identityService);
 
 export function getHomeRouteForRole(role: UserRole): Href {
   switch (role) {
@@ -69,10 +69,10 @@ export function useAuth() {
     mutationFn: (email: string) => recoverPasswordUseCase.execute(email),
   });
 
-  const provisionUserMutation = useMutation({
-    mutationFn: (input: ProvisionUserInput) => {
+  const createSubordinateUserMutation = useMutation({
+    mutationFn: (input: CreateSubordinateUserInput) => {
       if (!user) throw new Error('Sesión no iniciada.');
-      return provisionUserUseCase.execute(input, user);
+      return createSubordinateUserUseCase.execute(input, user);
     },
   });
 
@@ -92,14 +92,14 @@ export function useAuth() {
     logout,
     changeFirstPassword: changeFirstPasswordMutation.mutateAsync,
     recoverPassword: recoverPasswordMutation.mutateAsync,
-    provisionUser: provisionUserMutation.mutateAsync,
+    createSubordinateUser: createSubordinateUserMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     isChangingPassword: changeFirstPasswordMutation.isPending,
     isRecovering: recoverPasswordMutation.isPending,
-    isProvisioning: provisionUserMutation.isPending,
+    isCreatingUser: createSubordinateUserMutation.isPending,
     loginError: loginMutation.error?.message ?? null,
     changePasswordError: changeFirstPasswordMutation.error?.message ?? null,
     recoverError: recoverPasswordMutation.error?.message ?? null,
-    provisionError: provisionUserMutation.error?.message ?? null,
+    createUserError: createSubordinateUserMutation.error?.message ?? null,
   };
 }
