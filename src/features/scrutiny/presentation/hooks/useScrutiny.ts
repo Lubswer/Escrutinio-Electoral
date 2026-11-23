@@ -7,17 +7,19 @@ import { GetCandidatosUseCase } from '../../application/use-cases/GetCandidatosU
 import { SaveActaUseCase } from '../../application/use-cases/SaveActaUseCase';
 import { SyncPendingActasUseCase } from '../../application/use-cases/SyncPendingActasUseCase';
 import { Dignidad, SaveActaInput } from '../../domain/entities/Acta';
+import { AsyncStorageOfflineActaRepository } from '../../infrastructure/repositories/AsyncStorageOfflineActaRepository';
 import { SupabaseActaRepository } from '../../infrastructure/repositories/SupabaseActaRepository';
 import { ExpoMediaEvidenceService } from '../../infrastructure/services/ExpoMediaEvidenceService';
 
 const actaRepo = new SupabaseActaRepository();
+const offlineQueueRepo = new AsyncStorageOfflineActaRepository();
 const territoryRepo = new SupabaseTerritoryRepository();
 const mediaService = new ExpoMediaEvidenceService();
 
 const getCandidatosUseCase = new GetCandidatosUseCase(actaRepo);
-const getActasByJrvUseCase = new GetActasByJrvUseCase(actaRepo);
-const saveActaUseCase = new SaveActaUseCase(actaRepo);
-const syncPendingActasUseCase = new SyncPendingActasUseCase(actaRepo);
+const getActasByJrvUseCase = new GetActasByJrvUseCase(actaRepo, offlineQueueRepo);
+const saveActaUseCase = new SaveActaUseCase(actaRepo, offlineQueueRepo);
+const syncPendingActasUseCase = new SyncPendingActasUseCase(actaRepo, offlineQueueRepo);
 
 export function useVeedorJrvs(veedorId: string | undefined) {
   return useQuery({
@@ -31,7 +33,7 @@ export function useCandidatos(dignidad?: Dignidad) {
   return useQuery({
     queryKey: ['scrutiny', 'candidatos', dignidad ?? 'all'],
     queryFn: () => getCandidatosUseCase.execute(dignidad),
-    staleTime: 1000 * 60 * 60, // Los candidatos precargados no cambian durante la jornada
+    staleTime: 1000 * 60 * 60,
   });
 }
 
@@ -49,7 +51,7 @@ export function usePendingQueue() {
 
   const pendingQuery = useQuery({
     queryKey: ['scrutiny', 'pending-queue'],
-    queryFn: () => actaRepo.getPendingActas(),
+    queryFn: () => offlineQueueRepo.getPendingActas(),
   });
 
   const syncNow = useCallback(async () => {

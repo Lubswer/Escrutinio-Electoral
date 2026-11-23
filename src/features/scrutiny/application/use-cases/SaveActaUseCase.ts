@@ -2,15 +2,19 @@ import { NetworkError, ValidationError } from '@shared/domain/errors/AppError';
 import { isDeviceOnline } from '@shared/infrastructure/network/networkMonitor';
 import { Acta, SaveActaInput } from '../../domain/entities/Acta';
 import { IActaRepository } from '../../domain/repositories/IActaRepository';
+import { IOfflineActaQueueRepository } from '../../domain/repositories/IOfflineActaQueueRepository';
 import { assertActaCuadratura } from '../../domain/rules/validateActaCuadratura';
 
 /**
  * RF-09, RF-10, RF-11, RF-12, RF-13, RF-14, S-04, S-05:
  * Valida la cuadratura aritmética, exige foto y GPS, y guarda en Supabase
- * o encola localmente si el dispositivo está en zona sin cobertura.
+ * o encola localmente en AsyncStorage si el dispositivo está sin cobertura.
  */
 export class SaveActaUseCase {
-  constructor(private readonly actaRepo: IActaRepository) {}
+  constructor(
+    private readonly actaRepo: IActaRepository,
+    private readonly offlineQueueRepo: IOfflineActaQueueRepository,
+  ) {}
 
   async execute(input: SaveActaInput): Promise<Acta> {
     if (!input.localPhotoUri) {
@@ -30,14 +34,16 @@ export class SaveActaUseCase {
 
     const online = await isDeviceOnline();
     if (!online) {
-      return this.actaRepo.enqueuePendingActa(input);
+      return this.offlineQueueRepo.enqueue(input);
     }
 
     try {
-      return await this.actaRepo.saveActaRemote(input);
+      const saved = await this.actaRepo.saveActa(input);
+      await this.offlineQueueRepo.remove(input.jrvId, input.dignidad);
+      return saved;
     } catch (error) {
       if (error instanceof NetworkError) {
-        return this.actaRepo.enqueuePendingActa(input, error.message);
+        return this.offlineQueueRepo.enqueue(input, error.message);
       }
       throw error;
     }
