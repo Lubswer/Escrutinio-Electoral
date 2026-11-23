@@ -76,6 +76,13 @@ export default function CoordinadorRecintoHomeScreen() {
               Veedor: {jrv.veedorNombre ?? '⚠️ Sin veedor asignado'}
             </Text>
 
+            <TouchableOpacity
+              onPress={() => router.push(`/(app)/veedor/scrutiny/${jrv.id}` as Href)}
+              style={styles.reviewActaBtn}
+            >
+              <Text style={styles.reviewActaText}>Ver / Corregir actas de esta mesa →</Text>
+            </TouchableOpacity>
+
             {editingJrvId === jrv.id ? (
               <View style={styles.pickerBox}>
                 <Text style={styles.pickerTitle}>Selecciona un veedor de tu recinto:</Text>
@@ -159,6 +166,8 @@ const styles = StyleSheet.create({
   },
   veedorOptionText: { fontSize: 14, fontWeight: '600', color: Colors.text },
   emptyText: { color: Colors.textSecondary, fontSize: 14 },
+  reviewActaBtn: { marginTop: 4, paddingVertical: 6 },
+  reviewActaText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
   infoBanner: { backgroundColor: Colors.primaryLight, padding: 12, borderRadius: 10 },
   infoText: { color: Colors.primary, fontWeight: '600', fontSize: 14 },
   logoutBtn: { marginTop: 10 },
