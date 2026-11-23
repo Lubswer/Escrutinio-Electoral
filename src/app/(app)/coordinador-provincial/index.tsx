@@ -19,21 +19,39 @@ export default function CoordinadorProvincialHomeScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Exit Poll y Seguimiento en Vivo</Text>
+        <Text style={styles.sectionDesc}>
+          Consulta votos por candidato en tiempo real, avance de mesas por recinto y ubicación GPS
+          de cada acta.
+        </Text>
+        <AppButton
+          title="Abrir Exit Poll en Tiempo Real"
+          onPress={() => router.push('/(app)/coordinador-provincial/exit-poll' as Href)}
+        />
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Gestión Territorial y Personal</Text>
         <Text style={styles.sectionDesc}>
           Administra recintos electorales, agrega mesas (JRV) y crea coordinadores de recinto.
         </Text>
         <AppButton
           title="Recintos y Coordinadores"
+          variant="secondary"
           onPress={() => router.push('/(app)/coordinador-provincial/recintos' as Href)}
         />
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Seguimiento del Escrutinio</Text>
+        <Text style={styles.sectionTitle}>Estabilidad y Monitoreo (Sentry)</Text>
         <Text style={styles.sectionDesc}>
-          Exit Poll en tiempo real y monitoreo de fallos (se habilitará en el siguiente módulo).
+          Verifica el reporte automático de errores y ejecuta pruebas controladas de estabilidad.
         </Text>
+        <AppButton
+          title="Monitor de Estabilidad y Fallos"
+          variant="secondary"
+          onPress={() => router.push('/(app)/coordinador-provincial/monitor-errors' as Href)}
+        />
       </View>
 
       <AppButton title="Cerrar sesión" variant="danger" onPress={logout} style={styles.logoutBtn} />
@@ -46,6 +64,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 20,
     paddingTop: 54,
+    paddingBottom: 32,
     backgroundColor: Colors.background,
     gap: 16,
   },
