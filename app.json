@@ -35,7 +35,13 @@
         }
       ],
       "expo-secure-store",
-      "@sentry/react-native",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "lubswer",
+          "project": "expo"
+        }
+      ],
       [
         "expo-image-picker",
         {
