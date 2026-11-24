@@ -1,5 +1,5 @@
 import { SupabaseTerritoryRepository } from '@features/territory/infrastructure/repositories/SupabaseTerritoryRepository';
-import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor';
+import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
 import { GetActasByJrvUseCase } from '../../application/use-cases/GetActasByJrvUseCase';

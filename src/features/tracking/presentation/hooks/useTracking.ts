@@ -1,3 +1,4 @@
+import { captureAppError, triggerControlledCrash } from '@shared/infrastructure/monitoring/sentry';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { GetActasOrigenUseCase } from '../../application/use-cases/GetActasOrigenUseCase';
@@ -61,8 +62,27 @@ export function useTracking(dignidad: TrackingDignidad, recintoId: string | null
 }
 
 export function useReportedErrors() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['tracking', 'sentry-issues'],
     queryFn: () => getReportedErrorsUseCase.execute(),
   });
+
+  const sendTestNonFatalError = (context: {
+    screen: string;
+    userId?: string;
+    online: boolean;
+  }) => {
+    const err = new Error('Prueba de error controlado (ej. fallo de subida de foto)');
+    captureAppError(err, { ...context, type: 'non-fatal-test' });
+  };
+
+  const triggerTestCrash = (screenName: string) => {
+    triggerControlledCrash(screenName);
+  };
+
+  return {
+    ...query,
+    sendTestNonFatalError,
+    triggerTestCrash,
+  };
 }

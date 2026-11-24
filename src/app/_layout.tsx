@@ -1,39 +1,20 @@
-import { initSentry, Sentry, setMonitoringUser } from '@shared/infrastructure/monitoring/sentry';
+import { useAuthBootstrap } from '@features/auth/presentation/hooks/useAuth';
+import { initSentry, Sentry } from '@shared/infrastructure/monitoring/sentry';
 import { setupNetworkMonitoring } from '@shared/infrastructure/network/networkMonitor';
 import { asyncStoragePersister, queryClient } from '@shared/infrastructure/storage/queryClient';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
-import { SupabaseAuthRepository } from '../features/auth/infrastructure/repositories/SupabaseAuthRepository';
-import { useAuthStore } from '../features/auth/presentation/store/authStore';
 
 initSentry();
 
-const authRepo = new SupabaseAuthRepository();
-
 function RootLayout() {
-  const { setUser, setInitialized } = useAuthStore();
+  useAuthBootstrap();
 
   useEffect(() => {
     setupNetworkMonitoring();
-
-    authRepo
-      .getCurrentUser()
-      .then((currentUser) => {
-        setUser(currentUser);
-        if (currentUser) {
-          setMonitoringUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            rol: currentUser.rol,
-          });
-        }
-      })
-      .finally(() => {
-        setInitialized(true);
-      });
-  }, [setInitialized, setUser]);
+  }, []);
 
   return (
     <PersistQueryClientProvider

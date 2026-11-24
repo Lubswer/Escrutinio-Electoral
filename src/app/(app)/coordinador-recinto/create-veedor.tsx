@@ -3,7 +3,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
 import { Colors } from '@shared/ui/theme/colors';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -24,7 +23,6 @@ type VeedorFormValues = z.infer<typeof veedorSchema>;
 export default function CreateVeedorScreen() {
   const { user, createSubordinateUser, isCreatingUser, createUserError } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [createdCredentials, setCreatedCredentials] = useState<{
     email: string;
@@ -57,7 +55,6 @@ export default function CreateVeedorScreen() {
         rol: 'veedor',
         recintoId: user.recintoId,
       });
-      await queryClient.invalidateQueries({ queryKey: ['territory', 'veedores', user.recintoId] });
       setCreatedCredentials({ email: values.email, clave: values.claveTemporal });
       reset();
     } catch {

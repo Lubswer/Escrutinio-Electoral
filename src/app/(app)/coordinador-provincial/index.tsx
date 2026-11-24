@@ -1,6 +1,6 @@
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
 import { useTracking } from '@features/tracking/presentation/hooks/useTracking';
-import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor';
+import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { Colors } from '@shared/ui/theme/colors';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';

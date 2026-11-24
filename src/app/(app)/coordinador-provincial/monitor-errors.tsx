@@ -1,8 +1,7 @@
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
 import { useReportedErrors } from '@features/tracking/presentation/hooks/useTracking';
-import { captureAppError, triggerControlledCrash } from '@shared/infrastructure/monitoring/sentry';
-import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor';
 import { AppButton } from '@shared/ui/components/AppButton';
+import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { Colors } from '@shared/ui/theme/colors';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -12,16 +11,22 @@ export default function MonitorErrorsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isOnline } = useNetworkStatus();
-  const { data: issues = [], isLoading, error, refetch, isFetching } = useReportedErrors();
+  const {
+    data: issues = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    sendTestNonFatalError,
+    triggerTestCrash,
+  } = useReportedErrors();
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleNonFatalError = () => {
-    const err = new Error('Prueba de error controlado (ej. fallo de subida de foto)');
-    captureAppError(err, {
+    sendTestNonFatalError({
       screen: 'MonitorErrorsScreen',
       userId: user?.id,
       online: isOnline,
-      type: 'non-fatal-test',
     });
     setFeedback(
       isOnline
@@ -31,7 +36,7 @@ export default function MonitorErrorsScreen() {
   };
 
   const handleControlledCrash = () => {
-    triggerControlledCrash('MonitorErrorsScreen');
+    triggerTestCrash('MonitorErrorsScreen');
   };
 
   const openLocationInMaps = (coords: string) => {

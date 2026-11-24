@@ -7,7 +7,7 @@ import {
   useSaveActa,
 } from '@features/scrutiny/presentation/hooks/useScrutiny';
 import { ConflictError } from '@shared/domain/errors/AppError';
-import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor';
+import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { Colors } from '@shared/ui/theme/colors';
 import { useLocalSearchParams, useRouter } from 'expo-router';

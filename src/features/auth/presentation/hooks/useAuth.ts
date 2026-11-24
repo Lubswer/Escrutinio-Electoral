@@ -1,6 +1,7 @@
 import { setMonitoringUser } from '@shared/infrastructure/monitoring/sentry';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Href, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { ChangeFirstPasswordUseCase } from '../../application/use-cases/ChangeFirstPasswordUseCase';
 import { CreateSubordinateUserUseCase } from '../../application/use-cases/CreateSubordinateUserUseCase';
 import { LoginUseCase } from '../../application/use-cases/LoginUseCase';
@@ -29,9 +30,35 @@ export function getHomeRouteForRole(role: UserRole): Href {
   }
 }
 
+/**
+ * Restaura la sesión activa al iniciar la app sin exponer SupabaseAuthRepository a src/app/_layout.tsx.
+ */
+export function useAuthBootstrap() {
+  const { setUser, setInitialized } = useAuthStore();
+
+  useEffect(() => {
+    authRepo
+      .getCurrentUser()
+      .then((currentUser) => {
+        setUser(currentUser);
+        if (currentUser) {
+          setMonitoringUser({
+            id: currentUser.id,
+            email: currentUser.email,
+            rol: currentUser.rol,
+          });
+        }
+      })
+      .finally(() => {
+        setInitialized(true);
+      });
+  }, [setInitialized, setUser]);
+}
+
 export function useAuth() {
   const { user, setUser, clearAuth } = useAuthStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
@@ -73,6 +100,9 @@ export function useAuth() {
     mutationFn: (input: CreateSubordinateUserInput) => {
       if (!user) throw new Error('Sesión no iniciada.');
       return createSubordinateUserUseCase.execute(input, user);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['territory'] });
     },
   });
 

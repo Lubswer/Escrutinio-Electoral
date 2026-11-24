@@ -1,6 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 
 /**
  * Conecta NetInfo con el onlineManager de TanStack Query (ADR-05 + ADR-08).
@@ -21,20 +20,8 @@ export async function isDeviceOnline(): Promise<boolean> {
   return Boolean(state.isConnected && state.isInternetReachable !== false);
 }
 
-export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-
-  useEffect(() => {
-    NetInfo.fetch().then((state) => {
-      setIsOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
-    });
-
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setIsOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  return { isOnline };
+export function subscribeToNetworkStatus(onChange: (isOnline: boolean) => void): () => void {
+  return NetInfo.addEventListener((state) => {
+    onChange(Boolean(state.isConnected && state.isInternetReachable !== false));
+  });
 }
