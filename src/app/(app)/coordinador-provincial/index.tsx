@@ -4,8 +4,9 @@ import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor'
 import { Colors } from '@shared/ui/theme/colors';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { Href, useFocusEffect, useRouter } from 'expo-router';
+import LottieView from 'lottie-react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 
 const logoAdn = require('@/assets/logoADN.png');
+const ecuadorLottie = require('@/assets/Ecuador.lottie');
 
 export default function CoordinadorProvincialHomeScreen() {
   const { width: screenWidth } = useWindowDimensions();
@@ -26,6 +28,40 @@ export default function CoordinadorProvincialHomeScreen() {
   const router = useRouter();
   const { isOnline } = useNetworkStatus();
   const { avanceRecintos, actasOrigen } = useTracking('alcalde', null);
+  const ecuadorLottieRef = useRef<LottieView>(null);
+  const pendingExitPollNavRef = useRef(false);
+  const navFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      ecuadorLottieRef.current?.play(0, 10);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      pendingExitPollNavRef.current = false;
+      ecuadorLottieRef.current?.play(0, 10);
+    }, []),
+  );
+
+  const navigateToExitPoll = () => {
+    if (!pendingExitPollNavRef.current) return;
+    pendingExitPollNavRef.current = false;
+    if (navFallbackTimerRef.current) {
+      clearTimeout(navFallbackTimerRef.current);
+      navFallbackTimerRef.current = null;
+    }
+    router.push('/(app)/coordinador-provincial/exit-poll' as Href);
+  };
+
+  const handleOpenExitPoll = () => {
+    if (pendingExitPollNavRef.current) return;
+    pendingExitPollNavRef.current = true;
+    ecuadorLottieRef.current?.play(10, 30);
+    navFallbackTimerRef.current = setTimeout(navigateToExitPoll, 1500);
+  };
 
   const { totalJrvs, jrvsCompletas, pctAvance } = useMemo(() => {
     const total = avanceRecintos.reduce((acc, r) => acc + r.totalJrvs, 0);
@@ -138,7 +174,7 @@ export default function CoordinadorProvincialHomeScreen() {
           {/* Tarjeta Principal Destacada: Exit Poll */}
           <Animated.View entering={FadeInUp.delay(80).duration(400)}>
             <Pressable
-              onPress={() => router.push('/(app)/coordinador-provincial/exit-poll' as Href)}
+              onPress={handleOpenExitPoll}
               style={({ pressed }) => [styles.featuredWrap, pressed ? styles.pressed : null]}
             >
               <LinearGradient
@@ -147,72 +183,121 @@ export default function CoordinadorProvincialHomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.featuredCard}
               >
-                <Text style={styles.featuredTitle}>Exit Poll y Resultados</Text>
-                <Text style={styles.featuredDesc}>
-                  Gráficos en tiempo real de Alcaldía y Prefectura, avance por recinto y origen GPS.
-                </Text>
+                <View style={styles.featuredHeaderFull}>
+                  <Text style={styles.featuredTitle}>Exit Poll y Resultados</Text>
+                </View>
+
+                <View style={styles.featuredMiddleRow}>
+                  <Text style={styles.featuredDesc}>
+                    Conoce en tiempo real de Alcaldía y Prefectura
+                  </Text>
+                  <View style={styles.ecuadorLottieWrap} pointerEvents="none">
+                    <LottieView
+                      ref={ecuadorLottieRef}
+                      source={ecuadorLottie}
+                      autoPlay={false}
+                      loop={false}
+                      speed={4}
+                      resizeMode="contain"
+                      onAnimationFinish={navigateToExitPoll}
+                      style={styles.ecuadorLottie}
+                    />
+                  </View>
+                </View>
 
                 <View style={styles.featuredFooter}>
                   <Text style={styles.featuredCta}>Ver resultados en vivo</Text>
                   <View style={styles.arrowCircle}>
-                    <Text style={styles.arrowText}>→</Text>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M5 12h14M13 6l6 6-6 6"
+                        stroke={Colors.primaryDark}
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
                   </View>
                 </View>
               </LinearGradient>
             </Pressable>
           </Animated.View>
 
-          {/* Grid de 2 Columnas */}
+          {/* Cards a ancho completo */}
           <Animated.View entering={FadeInUp.delay(160).duration(400)} style={styles.bentoRow}>
             <Pressable
               onPress={() => router.push('/(app)/coordinador-provincial/recintos' as Href)}
               style={({ pressed }) => [styles.bentoTile, pressed ? styles.pressed : null]}
             >
-              <View style={[styles.tileIconBox, { backgroundColor: Colors.primaryLight }]}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 21s-7-5.686-7-11a7 7 0 1114 0c0 5.314-7 11-7 11z"
-                    stroke={Colors.primary}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Circle cx={12} cy={10} r={2.5} fill={Colors.primaryMedium} />
-                </Svg>
+              <View style={styles.tileHeaderRow}>
+                <View style={[styles.tileIconBox, { backgroundColor: Colors.primaryLight }]}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 21s-7-5.686-7-11a7 7 0 1114 0c0 5.314-7 11-7 11z"
+                      stroke={Colors.primary}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <Circle cx={12} cy={10} r={2.5} fill={Colors.primaryMedium} />
+                  </Svg>
+                </View>
+                <Text style={styles.tileTitle}>Recintos y Personal</Text>
               </View>
-              <Text style={styles.tileTitle}>Recintos y Personal</Text>
-              <Text style={styles.tileDesc}>
-                Gestiona recintos, mesas (JRV) y coordinadores.
-              </Text>
-              <Text style={styles.tileLink}>Administrar →</Text>
+              <View style={styles.tileFooter}>
+                <Text style={styles.tileLink}>Administrar</Text>
+                <View style={[styles.tileArrowCircle, { backgroundColor: Colors.primary }]}>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      stroke="#FFFFFF"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+              </View>
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/(app)/coordinador-provincial/monitor-errors' as Href)}
               style={({ pressed }) => [styles.bentoTile, pressed ? styles.pressed : null]}
             >
-              <View style={[styles.tileIconBox, { backgroundColor: '#FCE7F3' }]}>
-                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"
-                    stroke={Colors.primaryWarm}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Path
-                    d="M12 8v4M12 16h.01"
-                    stroke={Colors.primaryWarm}
-                    strokeWidth={2.2}
-                    strokeLinecap="round"
-                  />
-                </Svg>
+              <View style={styles.tileHeaderRow}>
+                <View style={[styles.tileIconBox, { backgroundColor: '#FCE7F3' }]}>
+                  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"
+                      stroke={Colors.primaryWarm}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <Path
+                      d="M12 8v4M12 16h.01"
+                      stroke={Colors.primaryWarm}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
+                <Text style={styles.tileTitle}>Monitor de Fallos</Text>
               </View>
-              <Text style={styles.tileTitle}>Monitor de Fallos</Text>
-              <Text style={styles.tileDesc}>
-                Alertas Sentry, dispositivos, Android y GPS.
-              </Text>
-              <Text style={[styles.tileLink, { color: Colors.primaryWarm }]}>Inspeccionar →</Text>
+              <View style={styles.tileFooter}>
+                <Text style={[styles.tileLink, { color: Colors.primaryWarm }]}>Inspeccionar</Text>
+                <View style={[styles.tileArrowCircle, { backgroundColor: Colors.primaryWarm }]}>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      stroke="#FFFFFF"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+              </View>
             </Pressable>
           </Animated.View>
         </View>
@@ -414,6 +499,28 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 20,
     gap: 10,
+    overflow: 'hidden',
+  },
+  featuredHeaderFull: {
+    width: '100%',
+  },
+  featuredMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  ecuadorLottieWrap: {
+    width: 108,
+    height: 108,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ecuadorLottie: {
+    width: 220,
+    height: 210,
+    top:50,
+    left:20
   },
   featuredTop: {
     flexDirection: 'row',
@@ -458,11 +565,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   featuredDesc: {
+    flex: 1,
     fontSize: 14,
     color: Colors.primaryLight,
     lineHeight: 20,
   },
   featuredFooter: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -490,11 +599,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   bentoRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 14,
   },
   bentoTile: {
-    flex: 1,
+    width: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: 16,
@@ -505,7 +614,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
-    gap: 8,
+    gap: 10,
+  },
+  tileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   tileIconBox: {
     width: 44,
@@ -513,10 +627,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
   },
   tileTitle: {
-    fontSize: 15,
+    flex: 1,
+    fontSize: 16,
     fontWeight: '800',
     color: Colors.text,
   },
@@ -524,13 +638,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 18,
-    flex: 1,
+  },
+  tileFooter: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
   tileLink: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     color: Colors.primary,
-    marginTop: 4,
+  },
+  tileArrowCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.88,
