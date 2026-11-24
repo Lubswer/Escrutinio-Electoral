@@ -127,8 +127,9 @@ export class SupabaseTrackingRepository implements ITrackingRepository {
   }
 
   subscribeToEscrutinio(onChange: () => void): () => void {
+    const channelName = `escrutinio-realtime-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel('escrutinio-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'actas' },

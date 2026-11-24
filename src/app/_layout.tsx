@@ -4,6 +4,7 @@ import { asyncStoragePersister, queryClient } from '@shared/infrastructure/stora
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 import { SupabaseAuthRepository } from '../features/auth/infrastructure/repositories/SupabaseAuthRepository';
 import { useAuthStore } from '../features/auth/presentation/store/authStore';
 
@@ -39,6 +40,7 @@ function RootLayout() {
       client={queryClient}
       persistOptions={{ persister: asyncStoragePersister }}
     >
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <Stack screenOptions={{ headerShown: false }} />
     </PersistQueryClientProvider>
   );

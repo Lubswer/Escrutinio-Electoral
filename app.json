@@ -8,7 +8,7 @@
     "scheme": "escrutinioelecciones",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "package": "com.escrutinio.ruminahui",

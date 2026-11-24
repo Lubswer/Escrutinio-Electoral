@@ -1,0 +1,6 @@
+{
+  "name": "lottie-creator",
+  "displayName": "Lottie Creator",
+  "description": "Connects Antigravity locally (stdio) to LottieFiles Creator via @lottiefiles/creator-mcp to inspect, edit, and build Lottie animations.",
+  "homepage": "https://docs.lottiefiles.com/en/creator/13_ai-tools/lottie-creator-mcp"
+}

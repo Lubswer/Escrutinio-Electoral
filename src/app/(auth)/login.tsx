@@ -3,9 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
 import { Colors } from '@shared/ui/theme/colors';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Href, Link } from 'expo-router';
+import LottieView from 'lottie-react-native';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,7 +18,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
 import { z } from 'zod';
+
+const loginBg = require('@/assets/images/fodoLogin.jpg');
+const loginLottie = require('@/assets/animacionLogin.lottie');
+const logoAdn = require('@/assets/logoADN.png');
 
 const loginSchema = z.object({
   email: z.string().email('Ingresa un correo electrónico válido.'),
@@ -24,6 +34,26 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const { login, isLoggingIn, loginError } = useAuth();
+  const lottieRef = useRef<LottieView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // fr = 30 fps, op = 75 frames (2.5s). Reproduce hasta el segundo 1 (frame 30) y pausa ahí.
+  useEffect(() => {
+    lottieRef.current?.play(0, 10);
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const {
     control,
@@ -33,6 +63,11 @@ export default function LoginScreen() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  const handlePressLogin = () => {
+    lottieRef.current?.play(10, 75);
+    void handleSubmit(onSubmit)();
+  };
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
@@ -47,12 +82,43 @@ export default function LoginScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <Image
+        source={loginBg}
+        style={styles.bgImage}
+        contentFit="cover"
+        contentPosition="bottom"
+      />
+
+      <View style={styles.lottieLayer} pointerEvents="none">
+        <LottieView
+          ref={lottieRef}
+          source={loginLottie}
+          autoPlay={false}
+          loop={false}
+          speed={2}
+          resizeMode="contain"
+          style={styles.lottieFill}
+        />
+      </View>
+
+      <LinearGradient
+        colors={[
+          Colors.primary,
+          `${Colors.primary}B3`,
+          `${Colors.primaryMedium}4D`,
+          `${Colors.primary}00`,
+        ]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        dither
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
+
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
+        <Animated.View entering={SlideInDown.duration(450)} style={styles.card}>
           <Text style={styles.badge}>PICHINCHA · RUMIÑAHUI</Text>
           <Text style={styles.title}>Control Electoral</Text>
-          <Text style={styles.subtitle}>Ingresa con las credenciales asignadas por tu coordinador.</Text>
-
           {loginError ? (
             <View style={styles.errorBanner}>
               <Text style={styles.errorBannerText}>{loginError}</Text>
@@ -63,7 +129,7 @@ export default function LoginScreen() {
             control={control}
             name="email"
             label="Correo electrónico"
-            placeholder="ejemplo@correo.com"
+            placeholder="tucorreo@correo.com"
             autoCapitalize="none"
             keyboardType="email-address"
             errorMessage={errors.email?.message}
@@ -80,7 +146,7 @@ export default function LoginScreen() {
 
           <AppButton
             title="Ingresar"
-            onPress={handleSubmit(onSubmit)}
+            onPress={handlePressLogin}
             loading={isLoggingIn}
             style={styles.submitButton}
           />
@@ -88,24 +154,77 @@ export default function LoginScreen() {
           <Link href={'/(auth)/forgot-password' as Href} style={styles.forgotLink}>
             ¿Olvidaste tu contraseña? Recupérala aquí
           </Link>
-        </View>
+        </Animated.View>
       </ScrollView>
+
+      {!keyboardVisible ? (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={styles.logoContainer}
+          pointerEvents="none"
+        >
+          <Image source={logoAdn} style={styles.logoAdn} contentFit="contain" />
+        </Animated.View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.background },
+  bgImage: {
+    position: 'absolute',
+    top: -60,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '60%',
+  },
+  lottieLayer: {
+    position: 'absolute',
+    top: 90,
+    left: 50,
+    right: 0,
+    width: '70%',
+    height: '50%',
+  },
+  lottieFill: {
+    width: '100%',
+    height: '100%',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+  },
+  logoContainer: {
+    position: 'absolute',
+    top: 15,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 10,
+  },
+  logoAdn: {
+    width: 140,
+    height: 85,
+  },
   container: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 36,
+    borderTopWidth: 1,
     borderColor: Colors.border,
   },
   badge: {

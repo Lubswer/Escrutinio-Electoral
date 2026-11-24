@@ -1,90 +1,539 @@
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
-import { AppButton } from '@shared/ui/components/AppButton';
+import { useTracking } from '@features/tracking/presentation/hooks/useTracking';
+import { useNetworkStatus } from '@shared/infrastructure/network/networkMonitor';
 import { Colors } from '@shared/ui/theme/colors';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Href, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
+
+const logoAdn = require('@/assets/logoADN.png');
 
 export default function CoordinadorProvincialHomeScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { isOnline } = useNetworkStatus();
+  const { avanceRecintos, actasOrigen } = useTracking('alcalde', null);
+
+  const { totalJrvs, jrvsCompletas, pctAvance } = useMemo(() => {
+    const total = avanceRecintos.reduce((acc, r) => acc + r.totalJrvs, 0);
+    const completas = avanceRecintos.reduce((acc, r) => acc + r.jrvsCompletas, 0);
+    const pct = total > 0 ? Math.round((completas / total) * 100) : 0;
+    return { totalJrvs: total, jrvsCompletas: completas, pctAvance: pct };
+  }, [avanceRecintos]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.headerCard}>
-        <Text style={styles.role}>COORDINADOR PROVINCIAL · PICHINCHA</Text>
-        <Text style={styles.name}>
-          {user?.nombres} {user?.apellidos}
-        </Text>
-        <Text style={styles.subtitle}>Cantón Rumiñahui</Text>
-      </View>
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Cabecera Ejecutiva ADN 7 */}
+        <LinearGradient
+          colors={[Colors.primaryMedium, Colors.primaryMedium, Colors.primaryMedium]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <View style={[styles.heroGrid, { width: screenWidth }]} pointerEvents="none">
+            <Svg width={screenWidth} height="100%">
+              <Defs>
+                <Pattern id="adnGrid" width="28" height="28" patternUnits="userSpaceOnUse">
+                  <Path
+                    d="M 28 0 L 0 0 0 28"
+                    fill="none"
+                    stroke={Colors.primary}
+                    strokeWidth="1.2"
+                    strokeOpacity="0.45"
+                  />
+                </Pattern>
+              </Defs>
+              <Rect width={screenWidth} height="100%" fill="url(#adnGrid)" />
+            </Svg>
+          </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Exit Poll y Seguimiento en Vivo</Text>
-        <Text style={styles.sectionDesc}>
-          Consulta votos por candidato en tiempo real, avance de mesas por recinto y ubicación GPS
-          de cada acta.
-        </Text>
-        <AppButton
-          title="Abrir Exit Poll en Tiempo Real"
-          onPress={() => router.push('/(app)/coordinador-provincial/exit-poll' as Href)}
-        />
-      </View>
+          <View style={styles.topBar}>
+            <Image source={logoAdn} style={styles.logo} contentFit="contain" />
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gestión Territorial y Personal</Text>
-        <Text style={styles.sectionDesc}>
-          Administra recintos electorales, agrega mesas (JRV) y crea coordinadores de recinto.
-        </Text>
-        <AppButton
-          title="Recintos y Coordinadores"
-          variant="secondary"
-          onPress={() => router.push('/(app)/coordinador-provincial/recintos' as Href)}
-        />
-      </View>
+            <View style={styles.topActions}>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Estabilidad y Monitoreo (Sentry)</Text>
-        <Text style={styles.sectionDesc}>
-          Verifica el reporte automático de errores y ejecuta pruebas controladas de estabilidad.
-        </Text>
-        <AppButton
-          title="Monitor de Estabilidad y Fallos"
-          variant="secondary"
-          onPress={() => router.push('/(app)/coordinador-provincial/monitor-errors' as Href)}
-        />
-      </View>
+              <TouchableOpacity
+                onPress={logout}
+                activeOpacity={0.75}
+                style={styles.logoutChip}
+                accessibilityLabel="Cerrar sesión"
+              >
+                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+                    stroke="#FFFFFF"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={styles.logoutText}>Salir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-      <AppButton title="Cerrar sesión" variant="danger" onPress={logout} style={styles.logoutBtn} />
-    </ScrollView>
+          <Animated.View entering={FadeInDown.duration(350)} style={styles.greetingBlock}>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>COORDINADOR PROVINCIAL</Text>
+            </View>
+            <Text style={styles.userName}>
+              {user?.nombres} {user?.apellidos}
+            </Text>
+            <Text style={styles.jurisdiction}>Pichincha · Cantón Rumiñahui</Text>
+          </Animated.View>
+        </LinearGradient>
+
+        {/* Tarjeta flotante de KPIs rápidos */}
+        <Animated.View entering={FadeInUp.duration(400)} style={styles.kpiCard}>
+          <View style={styles.kpiHeader}>
+            <Text style={styles.kpiLabel}>AVANCE DE ESCRUTINIO</Text>
+            <Text style={styles.kpiPercent}>{pctAvance}%</Text>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, pctAvance)}%` }]} />
+          </View>
+
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiStat}>
+              <Text style={styles.kpiNumber}>
+                {jrvsCompletas}/{totalJrvs}
+              </Text>
+              <Text style={styles.kpiCaption}>Mesas completas</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiStat}>
+              <Text style={styles.kpiNumber}>{avanceRecintos.length}</Text>
+              <Text style={styles.kpiCaption}>Recintos</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiStat}>
+              <Text style={styles.kpiNumber}>{actasOrigen.length}</Text>
+              <Text style={styles.kpiCaption}>Actas recibidas</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Sección de Módulos (Bento Layout) */}
+        <View style={styles.body}>
+          <Text style={styles.sectionHeading}>Panel de Control</Text>
+
+          {/* Tarjeta Principal Destacada: Exit Poll */}
+          <Animated.View entering={FadeInUp.delay(80).duration(400)}>
+            <Pressable
+              onPress={() => router.push('/(app)/coordinador-provincial/exit-poll' as Href)}
+              style={({ pressed }) => [styles.featuredWrap, pressed ? styles.pressed : null]}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryMedium]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.featuredCard}
+              >
+                <Text style={styles.featuredTitle}>Exit Poll y Resultados</Text>
+                <Text style={styles.featuredDesc}>
+                  Gráficos en tiempo real de Alcaldía y Prefectura, avance por recinto y origen GPS.
+                </Text>
+
+                <View style={styles.featuredFooter}>
+                  <Text style={styles.featuredCta}>Ver resultados en vivo</Text>
+                  <View style={styles.arrowCircle}>
+                    <Text style={styles.arrowText}>→</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+
+          {/* Grid de 2 Columnas */}
+          <Animated.View entering={FadeInUp.delay(160).duration(400)} style={styles.bentoRow}>
+            <Pressable
+              onPress={() => router.push('/(app)/coordinador-provincial/recintos' as Href)}
+              style={({ pressed }) => [styles.bentoTile, pressed ? styles.pressed : null]}
+            >
+              <View style={[styles.tileIconBox, { backgroundColor: Colors.primaryLight }]}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 21s-7-5.686-7-11a7 7 0 1114 0c0 5.314-7 11-7 11z"
+                    stroke={Colors.primary}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <Circle cx={12} cy={10} r={2.5} fill={Colors.primaryMedium} />
+                </Svg>
+              </View>
+              <Text style={styles.tileTitle}>Recintos y Personal</Text>
+              <Text style={styles.tileDesc}>
+                Gestiona recintos, mesas (JRV) y coordinadores.
+              </Text>
+              <Text style={styles.tileLink}>Administrar →</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.push('/(app)/coordinador-provincial/monitor-errors' as Href)}
+              style={({ pressed }) => [styles.bentoTile, pressed ? styles.pressed : null]}
+            >
+              <View style={[styles.tileIconBox, { backgroundColor: '#FCE7F3' }]}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"
+                    stroke={Colors.primaryWarm}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <Path
+                    d="M12 8v4M12 16h.01"
+                    stroke={Colors.primaryWarm}
+                    strokeWidth={2.2}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.tileTitle}>Monitor de Fallos</Text>
+              <Text style={styles.tileDesc}>
+                Alertas Sentry, dispositivos, Android y GPS.
+              </Text>
+              <Text style={[styles.tileLink, { color: Colors.primaryWarm }]}>Inspeccionar →</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    paddingTop: 54,
-    paddingBottom: 32,
+  screen: {
+    flex: 1,
     backgroundColor: Colors.background,
-    gap: 16,
   },
-  headerCard: {
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
-    padding: 20,
+  scrollContent: {
+    paddingBottom: 36,
   },
-  role: { fontSize: 12, fontWeight: '700', color: Colors.primaryLight, marginBottom: 4 },
-  name: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
-  subtitle: { fontSize: 14, color: Colors.primaryLight, marginTop: 2 },
-  section: {
+  hero: {
+    paddingTop: 25,
+    paddingBottom: 56,
+    paddingHorizontal: 22,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+  },
+  heroGrid: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  logo: {
+    width: 122,
+    height: 65,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  netPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  netOnline: { backgroundColor: 'rgba(21, 128, 61, 0.85)' },
+  netOffline: { backgroundColor: 'rgba(180, 83, 9, 0.9)' },
+  netDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  netText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  logoutChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    top: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  logoutText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  greetingBlock: {
+    gap: 4,
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  roleBadgeText: {
+    color: Colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  userName: {
+    fontSize: 25,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  jurisdiction: {
+    fontSize: 14,
+    color: Colors.primaryLight,
+    fontWeight: '600',
+  },
+  kpiCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    marginHorizontal: 20,
+    marginTop: -32,
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 5,
+    gap: 12,
+  },
+  kpiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  kpiLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 0.7,
+  },
+  kpiPercent: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 6,
+    backgroundColor: Colors.primaryLight,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
+    backgroundColor: Colors.primaryMedium,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+  },
+  kpiStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  kpiNumber: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  kpiCaption: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  kpiDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: Colors.border,
+  },
+  body: {
+    paddingHorizontal: 20,
+    marginTop: 22,
+    gap: 14,
+  },
+  sectionHeading: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  featuredWrap: {
+    borderRadius: 22,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  featuredCard: {
+    borderRadius: 22,
+    padding: 20,
     gap: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
-  sectionDesc: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
-  logoutBtn: { marginTop: 8 },
+  featuredTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  featuredIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(215, 228, 41, 0.2)',
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.accent,
+  },
+  liveTagText: {
+    color: Colors.accent,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  featuredTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  featuredDesc: {
+    fontSize: 14,
+    color: Colors.primaryLight,
+    lineHeight: 20,
+  },
+  featuredFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  featuredCta: {
+    color: Colors.accent,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowText: {
+    color: Colors.primaryDark,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  bentoRow: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  bentoTile: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+    gap: 8,
+  },
+  tileIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  tileTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  tileDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    flex: 1,
+  },
+  tileLink: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primary,
+    marginTop: 4,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
 });

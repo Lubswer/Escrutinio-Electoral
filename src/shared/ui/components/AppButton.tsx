@@ -25,9 +25,9 @@ export function AppButton({
       ? Colors.danger
       : variant === 'secondary'
         ? Colors.surface
-        : Colors.primary;
+        : Colors.accent;
 
-  const textColor = variant === 'secondary' ? Colors.primary : '#FFFFFF';
+  const textColor = variant === 'secondary' ? Colors.primary : Colors.primaryDark;
 
   return (
     <TouchableOpacity
