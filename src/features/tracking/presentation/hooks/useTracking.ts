@@ -3,16 +3,20 @@ import { useEffect } from 'react';
 import { GetActasOrigenUseCase } from '../../application/use-cases/GetActasOrigenUseCase';
 import { GetAvanceRecintosUseCase } from '../../application/use-cases/GetAvanceRecintosUseCase';
 import { GetExitPollResultadosUseCase } from '../../application/use-cases/GetExitPollResultadosUseCase';
+import { GetReportedErrorsUseCase } from '../../application/use-cases/GetReportedErrorsUseCase';
 import { SubscribeToEscrutinioRealtimeUseCase } from '../../application/use-cases/SubscribeToEscrutinioRealtimeUseCase';
 import { TrackingDignidad } from '../../domain/entities/TrackingStats';
+import { SentryApiErrorMonitorRepository } from '../../infrastructure/repositories/SentryApiErrorMonitorRepository';
 import { SupabaseTrackingRepository } from '../../infrastructure/repositories/SupabaseTrackingRepository';
 
 const trackingRepo = new SupabaseTrackingRepository();
+const errorMonitorRepo = new SentryApiErrorMonitorRepository();
 
 const getAvanceRecintosUseCase = new GetAvanceRecintosUseCase(trackingRepo);
 const getExitPollResultadosUseCase = new GetExitPollResultadosUseCase(trackingRepo);
 const getActasOrigenUseCase = new GetActasOrigenUseCase(trackingRepo);
 const subscribeUseCase = new SubscribeToEscrutinioRealtimeUseCase(trackingRepo);
+const getReportedErrorsUseCase = new GetReportedErrorsUseCase(errorMonitorRepo);
 
 export function useTracking(dignidad: TrackingDignidad, recintoId: string | null) {
   const queryClient = useQueryClient();
@@ -54,4 +58,11 @@ export function useTracking(dignidad: TrackingDignidad, recintoId: string | null
       actasOrigenQuery.refetch();
     },
   };
+}
+
+export function useReportedErrors() {
+  return useQuery({
+    queryKey: ['tracking', 'sentry-issues'],
+    queryFn: () => getReportedErrorsUseCase.execute(),
+  });
 }

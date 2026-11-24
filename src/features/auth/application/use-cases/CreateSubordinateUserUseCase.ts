@@ -44,6 +44,25 @@ export class CreateSubordinateUserUseCase {
       throw new ValidationError(cedulaCheck.message ?? 'La cédula ingresada no es válida.');
     }
 
+    if (cedulaCheck.fullName) {
+      const normalize = (value: string) =>
+        value
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const apiTokens = normalize(cedulaCheck.fullName).split(/\s+/);
+      const enteredTokens = normalize(`${input.nombres} ${input.apellidos}`).split(/\s+/);
+      const matches = enteredTokens.every((token) => apiTokens.includes(token));
+
+      if (!matches) {
+        throw new ValidationError(
+          `Los nombres y apellidos no coinciden con la cédula registrada (${cedulaCheck.fullName}).`,
+        );
+      }
+    }
+
     if (!emailCheck.valid) {
       throw new ValidationError(emailCheck.message ?? 'El correo electrónico no pudo verificarse.');
     }

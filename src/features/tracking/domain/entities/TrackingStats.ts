@@ -32,3 +32,20 @@ export interface ActaOrigenEvidencia {
   registradoPorNombre: string;
   updatedAt: string;
 }
+
+export interface SentryIssueSummary {
+  id: string;
+  title: string;
+  culprit: string;
+  screen: string;
+  deviceModel: string;
+  osVersion: string;
+  affectedUser: string;
+  location: string | null;
+  level: string;
+  status: string;
+  count: number;
+  userCount: number;
+  lastSeen: string;
+  permalink: string;
+}

@@ -4,36 +4,67 @@ import {
   IIdentityVerificationService,
 } from '../../domain/services/IIdentityVerificationService';
 
-const cedulaApiUrl = process.env.EXPO_PUBLIC_CEDULA_API_URL ?? '';
+const cedulaApiUrl = (process.env.EXPO_PUBLIC_CEDULA_API_URL ?? '').replace(/\/+$/, '');
+const cedulaApiKey = process.env.EXPO_PUBLIC_CEDULA_API_KEY ?? '';
 const emailApiUrl = process.env.EXPO_PUBLIC_EMAIL_API_URL ?? '';
+const emailApiKey = process.env.EXPO_PUBLIC_EMAIL_API_KEY ?? '';
 
 /**
- * Adaptador para validación externa de cédula y correo electrónico vía APIs (ADR-11).
+ * Adaptador para validación externa de cédula (Datacil) y correo electrónico vía APIs (ADR-11).
  */
 export class ExternalIdentityService implements IIdentityVerificationService {
   async verifyCedula(cedula: string): Promise<CedulaVerificationResult> {
-    if (!cedulaApiUrl) {
+    if (!cedulaApiUrl || !cedulaApiKey) {
       return {
         valid: false,
-        message: 'Falta configurar EXPO_PUBLIC_CEDULA_API_URL en el archivo .env.',
+        message: 'Falta configurar EXPO_PUBLIC_CEDULA_API_URL o EXPO_PUBLIC_CEDULA_API_KEY en .env.',
       };
     }
 
     try {
-      const response = await fetch(`${cedulaApiUrl}?cedula=${encodeURIComponent(cedula)}`);
-      if (!response.ok) {
+      const response = await fetch(`${cedulaApiUrl}/${encodeURIComponent(cedula)}`, {
+        headers: {
+          Authorization: `Bearer ${cedulaApiKey}`,
+          Accept: 'application/json',
+        },
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok || !json) {
         return {
           valid: false,
-          message: 'No se pudo verificar la cédula en el servicio externo.',
+          message: json?.message ?? 'No se pudo verificar la cédula en el servicio externo.',
         };
       }
 
-      const data = await response.json();
-      const isValid = Boolean(data.valid ?? data.valido ?? data.ok);
+      const isBooleanValid = json.success === true && json.data === true;
+      const isObjectValid =
+        json.success === true && json.data !== null && typeof json.data === 'object';
+
+      if (!isBooleanValid && !isObjectValid) {
+        return {
+          valid: false,
+          message: json.message ?? 'La cédula ingresada no es válida.',
+        };
+      }
+
+      let fullName: string | undefined;
+      if (isObjectValid) {
+        const parts = [
+          json.data.firstname ?? json.data.nombres ?? json.data.firstName,
+          json.data.lastname ?? json.data.apellidos ?? json.data.lastName,
+        ].filter(Boolean);
+        fullName =
+          json.data.name ??
+          json.data.nombreCompleto ??
+          json.data.fullName ??
+          (parts.length > 0 ? parts.join(' ') : undefined);
+      }
+
       return {
-        valid: isValid,
-        fullName: data.fullName ?? data.nombres,
-        message: isValid ? undefined : (data.message ?? 'Cédula no encontrada o inválida.'),
+        valid: true,
+        fullName,
       };
     } catch {
       return {
@@ -44,15 +75,21 @@ export class ExternalIdentityService implements IIdentityVerificationService {
   }
 
   async verifyEmail(email: string): Promise<EmailVerificationResult> {
-    if (!emailApiUrl) {
+    if (!emailApiUrl || !emailApiKey) {
       return {
         valid: false,
-        message: 'Falta configurar EXPO_PUBLIC_EMAIL_API_URL en el archivo .env.',
+        message: 'Falta configurar EXPO_PUBLIC_EMAIL_API_URL o EXPO_PUBLIC_EMAIL_API_KEY en .env.',
       };
     }
 
     try {
-      const response = await fetch(`${emailApiUrl}?email=${encodeURIComponent(email)}`);
+      const separator = emailApiUrl.includes('?') ? '&' : '?';
+      const url = `${emailApiUrl}${separator}api_key=${encodeURIComponent(emailApiKey)}&email=${encodeURIComponent(email)}`;
+
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+      });
+
       if (!response.ok) {
         return {
           valid: false,
@@ -61,10 +98,20 @@ export class ExternalIdentityService implements IIdentityVerificationService {
       }
 
       const data = await response.json();
-      const isValid = Boolean(data.valid ?? data.deliverable ?? data.ok);
+      const status = String(data?.email_deliverability?.status ?? '').toLowerCase();
+      const isValid = status === 'deliverable';
+
+      if (isValid) {
+        return { valid: true };
+      }
+
+      const suggestion = data?.suggested_correction
+        ? ` ¿Quisiste decir ${data.suggested_correction}?`
+        : '';
+
       return {
-        valid: isValid,
-        message: isValid ? undefined : (data.message ?? 'El correo electrónico no es válido o no existe.'),
+        valid: false,
+        message: `El correo electrónico no es entregable o no existe.${suggestion}`,
       };
     } catch {
       return {
