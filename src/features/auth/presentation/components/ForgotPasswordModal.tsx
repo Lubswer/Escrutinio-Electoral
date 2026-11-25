@@ -1,22 +1,13 @@
+import { PasswordStrengthGuide } from '@features/auth/presentation/components/PasswordStrengthGuide';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AnimatedModal } from '@shared/ui/components/AnimatedModal';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
 import { Colors } from '@shared/ui/theme/colors';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { z } from 'zod';
 
 const emailStepSchema = z.object({
@@ -25,7 +16,7 @@ const emailStepSchema = z.object({
 
 const otpStepSchema = z
   .object({
-    token: z.string().min(6, 'Ingresa el código de 6 dígitos de tu correo.'),
+    token: z.string().min(8, 'Ingresa el código de 8 dígitos de tu correo.'),
     newPassword: z
       .string()
       .min(8, 'Mínimo 8 caracteres.')
@@ -77,6 +68,8 @@ export function ForgotPasswordModal({
     defaultValues: { token: '', newPassword: '', confirmPassword: '' },
   });
 
+  const watchedNewPassword = otpForm.watch('newPassword') ?? '';
+
   useEffect(() => {
     if (!visible) {
       setStep('email');
@@ -114,26 +107,18 @@ export function ForgotPasswordModal({
   };
 
   return (
-    <Modal
+    <AnimatedModal
       visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      onClose={onClose}
+      keyboardAvoiding
+      contentStyle={styles.modalCard}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.backdrop}
-      >
-        <Pressable style={styles.backdropDismiss} onPress={onClose} />
-
-        <Animated.View entering={ZoomIn.duration(220)} style={styles.modalCard}>
-          <View style={styles.header}>
+      <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title}>Recuperar contraseña</Text>
               <Text style={styles.subtitle}>
                 {step === 'email'
-                  ? 'Te enviaremos un código de 6 dígitos a tu correo'
+                  ? 'Te enviaremos un código de 8 dígitos a tu correo'
                   : step === 'otp'
                     ? `Código enviado a ${targetEmail}`
                     : 'Tu acceso fue actualizado'}
@@ -200,10 +185,10 @@ export function ForgotPasswordModal({
                 <AppInput
                   control={otpForm.control}
                   name="token"
-                  label="Código de verificación (6 dígitos)"
-                  placeholder="Ej: 482910"
+                  label="Código de verificación (8 dígitos)"
+                  placeholder="Ej: 48291035"
                   keyboardType="numeric"
-                  maxLength={6}
+                  maxLength={8}
                   errorMessage={otpForm.formState.errors.token?.message}
                 />
                 <AppInput
@@ -214,6 +199,7 @@ export function ForgotPasswordModal({
                   secureTextEntry
                   errorMessage={otpForm.formState.errors.newPassword?.message}
                 />
+                <PasswordStrengthGuide password={watchedNewPassword} compact />
                 <AppInput
                   control={otpForm.control}
                   name="confirmPassword"
@@ -261,9 +247,7 @@ export function ForgotPasswordModal({
               </View>
             )}
           </ScrollView>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </AnimatedModal>
   );
 }
 

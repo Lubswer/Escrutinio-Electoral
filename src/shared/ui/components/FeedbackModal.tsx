@@ -1,7 +1,30 @@
 import { Colors } from '@shared/ui/theme/colors';
 import { SymbolView } from 'expo-symbols';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import Animated, {
+  BounceIn,
+  BounceOutDown,
+  Easing,
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
+
+const BACKDROP_ENTER_DURATION = 160;
+const CARD_ENTER_DELAY = 70;
+const CARD_ENTER_DURATION = 300;
+const CARD_EXIT_DURATION = 300;
+const BACKDROP_EXIT_DELAY = 80;
+const BACKDROP_EXIT_DURATION = 220;
+const UNMOUNT_DELAY_MS = Math.max(CARD_EXIT_DURATION, BACKDROP_EXIT_DELAY + BACKDROP_EXIT_DURATION) + 30;
+
+const backdropEntering = FadeIn.duration(BACKDROP_ENTER_DURATION).easing(Easing.out(Easing.quad));
+const backdropExiting = FadeOut.duration(BACKDROP_EXIT_DURATION).delay(BACKDROP_EXIT_DELAY);
+
+const cardEntering = BounceIn.delay(CARD_ENTER_DELAY)
+  .duration(CARD_ENTER_DURATION)
+  .easing(Easing.inOut(Easing.quad));
+const cardExiting = BounceOutDown.duration(CARD_EXIT_DURATION).easing(Easing.inOut(Easing.quad));
 
 export type FeedbackType = 'info' | 'error' | 'success';
 
@@ -53,61 +76,106 @@ export function FeedbackModal({
   onAction,
   onClose,
 }: FeedbackModalProps) {
-  const cfg = VARIANT_CONFIG[type];
+  const [mounted, setMounted] = useState(visible);
+  const [snapshot, setSnapshot] = useState({
+    type,
+    title,
+    message,
+    buttonText,
+    actionLabel,
+  });
+
+  if (visible && !mounted) {
+    setMounted(true);
+  }
+
+  if (
+    visible &&
+    (snapshot.type !== type ||
+      snapshot.title !== title ||
+      snapshot.message !== message ||
+      snapshot.buttonText !== buttonText ||
+      snapshot.actionLabel !== actionLabel)
+  ) {
+    setSnapshot({ type, title, message, buttonText, actionLabel });
+  }
+
+  useEffect(() => {
+    if (visible) return;
+
+    const timer = setTimeout(() => {
+      setMounted(false);
+    }, UNMOUNT_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  if (!mounted) return null;
+
+  const active = visible ? { type, title, message, buttonText, actionLabel } : snapshot;
+  const cfg = VARIANT_CONFIG[active.type];
+  const hasAction = Boolean(active.actionLabel && onAction);
 
   return (
     <Modal
-      visible={visible}
+      visible={mounted}
       transparent
-      animationType="fade"
+      animationType="none"
       statusBarTranslucent
       onRequestClose={onClose}
     >
       <View style={styles.backdrop}>
-        <Pressable style={styles.backdropDismiss} onPress={onClose} />
+        {visible ? (
+          <Animated.View
+            entering={backdropEntering}
+            exiting={backdropExiting}
+            style={styles.backdropOverlay}
+          >
+            <Pressable style={styles.backdropDismiss} onPress={onClose} />
+          </Animated.View>
+        ) : null}
 
-        <Animated.View entering={ZoomIn.duration(220)} style={styles.card}>
-          <View style={[styles.topStrip, { backgroundColor: cfg.iconColor }]} />
+        {visible ? (
+          <Animated.View entering={cardEntering} exiting={cardExiting} style={styles.card}>
+            <View style={[styles.topStrip, { backgroundColor: cfg.iconColor }]} />
 
-          <View style={styles.cardBody}>
-            <View style={styles.titleRow}>
-              <SymbolView name={cfg.icon} size={22} tintColor={cfg.iconColor} />
-              <Text style={styles.title}>{title ?? cfg.defaultTitle}</Text>
-            </View>
+            <View style={styles.cardBody}>
+              <View style={styles.titleRow}>
+                <SymbolView name={cfg.icon} size={22} tintColor={cfg.iconColor} />
+                <Text style={styles.title}>{active.title ?? cfg.defaultTitle}</Text>
+              </View>
 
-            <Text style={styles.message}>{message}</Text>
+              <Text style={styles.message}>{active.message}</Text>
 
-            <View style={styles.buttonsWrap}>
-              {actionLabel && onAction ? (
+              <View style={styles.buttonsWrap}>
+                {hasAction ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={onAction}
+                    style={[styles.button, { backgroundColor: Colors.primary }]}
+                  >
+                    <Text style={styles.buttonText}>{active.actionLabel}</Text>
+                  </TouchableOpacity>
+                ) : null}
+
                 <TouchableOpacity
                   activeOpacity={0.85}
-                  onPress={onAction}
-                  style={[styles.button, { backgroundColor: Colors.primary }]}
-                >
-                  <Text style={styles.buttonText}>{actionLabel}</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={onClose}
-                style={[
-                  styles.button,
-                  actionLabel && onAction ? styles.secondaryButton : { backgroundColor: cfg.btnBg },
-                ]}
-              >
-                <Text
+                  onPress={onClose}
                   style={[
-                    styles.buttonText,
-                    actionLabel && onAction ? styles.secondaryButtonText : null,
+                    styles.button,
+                    hasAction ? styles.secondaryButton : { backgroundColor: cfg.btnBg },
                   ]}
                 >
-                  {buttonText ?? (actionLabel && onAction ? 'Cerrar' : cfg.defaultButton)}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[styles.buttonText, hasAction ? styles.secondaryButtonText : null]}
+                  >
+                    {active.buttonText ?? (hasAction ? 'Cerrar' : cfg.defaultButton)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        ) : null}
       </View>
     </Modal>
   );
@@ -116,10 +184,17 @@ export function FeedbackModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(28, 6, 36, 0.52)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 28,
+  },
+  backdropOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(28, 6, 36, 0.52)',
   },
   backdropDismiss: {
     position: 'absolute',

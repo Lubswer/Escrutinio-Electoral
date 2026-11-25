@@ -9,6 +9,7 @@ import {
 import { ConflictError } from '@shared/domain/errors/AppError';
 import { getCandidatePhoto } from '@shared/ui/assets/candidatePhotos';
 import { AdnHero } from '@shared/ui/components/AdnHero';
+import { AnimatedModal } from '@shared/ui/components/AnimatedModal';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { FeedbackModal, FeedbackType } from '@shared/ui/components/FeedbackModal';
 import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
@@ -20,9 +21,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -90,7 +89,14 @@ export default function ScrutinyActaScreen() {
   const [capturingPhoto, setCapturingPhoto] = useState(false);
   const [capturingGps, setCapturingGps] = useState(false);
   const [fullPhotoUri, setFullPhotoUri] = useState<string | null>(null);
+  const [lastFullPhotoUri, setLastFullPhotoUri] = useState<string | null>(null);
   const [loadingServerPhoto, setLoadingServerPhoto] = useState(false);
+
+  if (fullPhotoUri && fullPhotoUri !== lastFullPhotoUri) {
+    setLastFullPhotoUri(fullPhotoUri);
+  }
+
+  const activeFullPhotoUri = fullPhotoUri ?? lastFullPhotoUri;
 
   const handleOpenServerPhoto = async () => {
     if (!photoUri) return;
@@ -671,22 +677,12 @@ export default function ScrutinyActaScreen() {
         onClose={() => setFeedbackModal(null)}
       />
 
-      <Modal
+      <AnimatedModal
         visible={Boolean(fullPhotoUri)}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setFullPhotoUri(null)}
-      >
-        <View style={styles.fullPhotoBackdrop}>
-          <Pressable style={styles.fullPhotoDismiss} onPress={() => setFullPhotoUri(null)} />
-          {fullPhotoUri ? (
-            <Image
-              source={{ uri: fullPhotoUri }}
-              style={styles.fullPhotoImage}
-              contentFit="contain"
-            />
-          ) : null}
+        onClose={() => setFullPhotoUri(null)}
+        backdropStyle={styles.fullPhotoBackdrop}
+        contentStyle={styles.fullPhotoContent}
+        overlayContent={
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setFullPhotoUri(null)}
@@ -699,8 +695,16 @@ export default function ScrutinyActaScreen() {
               tintColor="#FFFFFF"
             />
           </TouchableOpacity>
-        </View>
-      </Modal>
+        }
+      >
+        {activeFullPhotoUri ? (
+          <Image
+            source={{ uri: activeFullPhotoUri }}
+            style={styles.fullPhotoImage}
+            contentFit="contain"
+          />
+        ) : null}
+      </AnimatedModal>
     </View>
   );
 }
@@ -1041,21 +1045,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fullPhotoBackdrop: {
-    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.94)',
+  },
+  fullPhotoContent: {
+    width: '100%',
+    height: '86%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fullPhotoDismiss: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   fullPhotoImage: {
     width: '100%',
-    height: '86%',
+    height: '100%',
   },
   fullPhotoCloseBtn: {
     position: 'absolute',

@@ -16,8 +16,8 @@ export class ResetPasswordWithOtpUseCase {
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new ValidationError('Ingresa un correo electrónico válido.');
     }
-    if (cleanToken.length < 6) {
-      throw new ValidationError('Ingresa el código de 6 dígitos enviado a tu correo.');
+    if (cleanToken.length < 8) {
+      throw new ValidationError('Ingresa el código de 8 dígitos enviado a tu correo.');
     }
     if (input.newPassword.length < 8) {
       throw new ValidationError('La nueva contraseña debe tener al menos 8 caracteres.');

@@ -1,21 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AnimatedModal } from '@shared/ui/components/AnimatedModal';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
 import { Colors } from '@shared/ui/theme/colors';
 import { SymbolView } from 'expo-symbols';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { z } from 'zod';
 
 const coordSchema = z.object({
@@ -70,21 +61,13 @@ export function AssignCoordinatorModal({
   };
 
   return (
-    <Modal
+    <AnimatedModal
       visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      onClose={onClose}
+      keyboardAvoiding
+      contentStyle={styles.modalCard}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.backdrop}
-      >
-        <Pressable style={styles.backdropDismiss} onPress={onClose} />
-
-        <View style={styles.modalCard}>
-          <View style={styles.header}>
+      <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title}>Asignar Coordinador</Text>
               {recintoNombre ? (
@@ -172,9 +155,7 @@ export function AssignCoordinatorModal({
               />
             </View>
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </AnimatedModal>
   );
 }
 

@@ -1,16 +1,10 @@
 import { Jrv, VeedorSummary } from '@features/territory/domain/entities/Jrv';
+import { AnimatedModal } from '@shared/ui/components/AnimatedModal';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { Colors } from '@shared/ui/theme/colors';
 import { SymbolView } from 'expo-symbols';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface AssignVeedorModalProps {
   jrv: Jrv | null;
@@ -27,88 +21,86 @@ export function AssignVeedorModal({
   onClose,
   onSelectVeedor,
 }: AssignVeedorModalProps) {
+  const [activeJrv, setActiveJrv] = useState<Jrv | null>(jrv);
+
+  if (jrv && jrv !== activeJrv) {
+    setActiveJrv(jrv);
+  }
+
+  const currentJrv = jrv ?? activeJrv;
+
   return (
-    <Modal
-      visible={Boolean(jrv)}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <Pressable style={styles.backdropDismiss} onPress={onClose} />
-
-        {jrv ? (
-          <View style={styles.modalCard}>
-            <View style={styles.header}>
-              <View style={styles.headerText}>
-                <Text style={styles.title}>
-                  {jrv.veedorId ? 'Reemplazar Veedor' : 'Asignar Veedor'}
-                </Text>
-                <Text style={styles.subtitle}>
-                  Mesa #{jrv.numeroMesa} · {jrv.genero}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={onClose}
-                activeOpacity={0.7}
-                style={styles.closeBtn}
-                accessibilityLabel="Cerrar modal"
-              >
-                <SymbolView
-                  name={{ ios: 'xmark', android: 'close', web: 'close' }}
-                  size={18}
-                  tintColor={Colors.textSecondary}
-                />
-              </TouchableOpacity>
+    <AnimatedModal visible={Boolean(jrv)} onClose={onClose} contentStyle={styles.modalCard}>
+      {currentJrv ? (
+        <>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>
+                {currentJrv.veedorId ? 'Reemplazar Veedor' : 'Asignar Veedor'}
+              </Text>
+              <Text style={styles.subtitle}>
+                Mesa #{currentJrv.numeroMesa} · {currentJrv.genero}
+              </Text>
             </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-            >
-              {veedores.length === 0 ? (
-                <Text style={styles.emptyText}>
-                  Primero registra al menos un veedor en tu recinto.
-                </Text>
-              ) : (
-                veedores.map((v) => {
-                  const isCurrent = jrv.veedorId === v.id;
-                  return (
-                    <TouchableOpacity
-                      key={v.id}
-                      activeOpacity={0.8}
-                      disabled={isAssigning}
-                      onPress={() => onSelectVeedor(jrv.id, v.id)}
-                      style={[styles.veedorOption, isCurrent ? styles.veedorSelected : null]}
-                    >
-                      <View style={styles.veedorInfo}>
-                        <Text style={styles.veedorName}>
-                          {v.nombres} {v.apellidos}
-                        </Text>
-                        <Text style={styles.veedorCedula}>CI: {v.cedula}</Text>
-                      </View>
-                      {isCurrent ? (
-                        <View style={styles.currentBadge}>
-                          <Text style={styles.currentBadgeText}>Actual</Text>
-                        </View>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <AppButton
-              title="Cancelar"
-              variant="secondary"
+            <TouchableOpacity
               onPress={onClose}
-              disabled={isAssigning}
-            />
+              activeOpacity={0.7}
+              style={styles.closeBtn}
+              accessibilityLabel="Cerrar modal"
+            >
+              <SymbolView
+                name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                size={18}
+                tintColor={Colors.textSecondary}
+              />
+            </TouchableOpacity>
           </View>
-        ) : null}
-      </View>
-    </Modal>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+          >
+            {veedores.length === 0 ? (
+              <Text style={styles.emptyText}>
+                Primero registra al menos un veedor en tu recinto.
+              </Text>
+            ) : (
+              veedores.map((v) => {
+                const isCurrent = currentJrv.veedorId === v.id;
+                return (
+                  <TouchableOpacity
+                    key={v.id}
+                    activeOpacity={0.8}
+                    disabled={isAssigning}
+                    onPress={() => onSelectVeedor(currentJrv.id, v.id)}
+                    style={[styles.veedorOption, isCurrent ? styles.veedorSelected : null]}
+                  >
+                    <View style={styles.veedorInfo}>
+                      <Text style={styles.veedorName}>
+                        {v.nombres} {v.apellidos}
+                      </Text>
+                      <Text style={styles.veedorCedula}>CI: {v.cedula}</Text>
+                    </View>
+                    {isCurrent ? (
+                      <View style={styles.currentBadge}>
+                        <Text style={styles.currentBadgeText}>Actual</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+
+          <AppButton
+            title="Cancelar"
+            variant="secondary"
+            onPress={onClose}
+            disabled={isAssigning}
+          />
+        </>
+      ) : null}
+    </AnimatedModal>
   );
 }
 

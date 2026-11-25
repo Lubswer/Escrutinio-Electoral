@@ -1,3 +1,4 @@
+import { PasswordStrengthGuide } from '@features/auth/presentation/components/PasswordStrengthGuide';
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AdnHero } from '@shared/ui/components/AdnHero';
@@ -5,8 +6,7 @@ import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
 import { FeedbackModal } from '@shared/ui/components/FeedbackModal';
 import { Colors } from '@shared/ui/theme/colors';
-import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -28,43 +28,6 @@ const changePasswordSchema = z
 
 type ChangePasswordValues = z.infer<typeof changePasswordSchema>;
 
-interface PasswordStrength {
-  score: number; // 0..4
-  label: string;
-  color: string;
-  checks: {
-    minLength: boolean;
-    hasUpper: boolean;
-    hasNumber: boolean;
-    hasSymbol: boolean;
-  };
-}
-
-function evaluatePasswordStrength(password: string): PasswordStrength {
-  const checks = {
-    minLength: password.length >= 8,
-    hasUpper: /[A-Z]/.test(password),
-    hasNumber: /[0-9]/.test(password),
-    hasSymbol: /[^A-Za-z0-9]/.test(password),
-  };
-
-  const score = Object.values(checks).filter(Boolean).length;
-
-  if (password.length === 0) {
-    return { score: 0, label: 'Ingresa tu clave', color: Colors.textSecondary, checks };
-  }
-  if (score <= 1) {
-    return { score: 1, label: 'Débil', color: Colors.danger, checks };
-  }
-  if (score === 2) {
-    return { score: 2, label: 'Regular', color: Colors.warning, checks };
-  }
-  if (score === 3) {
-    return { score: 3, label: 'Buena', color: Colors.primaryMedium, checks };
-  }
-  return { score: 4, label: 'Fuerte', color: Colors.success, checks };
-}
-
 export default function FirstLoginChangePasswordScreen() {
   const { user, changeFirstPassword, isChangingPassword, logout } = useAuth();
   const [errorModalMessage, setErrorModalMessage] = useState<string | null>(null);
@@ -79,11 +42,7 @@ export default function FirstLoginChangePasswordScreen() {
     defaultValues: { newPassword: '', confirmPassword: '' },
   });
 
-  const watchedPassword = watch('newPassword');
-  const strength = useMemo(
-    () => evaluatePasswordStrength(watchedPassword ?? ''),
-    [watchedPassword],
-  );
+  const watchedPassword = watch('newPassword') ?? '';
 
   const onSubmit = async (values: ChangePasswordValues) => {
     try {
@@ -95,13 +54,6 @@ export default function FirstLoginChangePasswordScreen() {
       );
     }
   };
-
-  const criteriaList = [
-    { key: 'minLength', label: 'Mínimo 8 caracteres', met: strength.checks.minLength },
-    { key: 'hasUpper', label: 'Al menos 1 letra mayúscula', met: strength.checks.hasUpper },
-    { key: 'hasNumber', label: 'Al menos 1 número', met: strength.checks.hasNumber },
-    { key: 'hasSymbol', label: 'Al menos 1 símbolo (recomendado)', met: strength.checks.hasSymbol },
-  ];
 
   return (
     <View style={styles.screen}>
@@ -146,59 +98,7 @@ export default function FirstLoginChangePasswordScreen() {
                 errorMessage={errors.confirmPassword?.message}
               />
 
-              {/* Medidor de seguridad de contraseña (puro código + React Hook Form + Zod) */}
-              <View style={styles.strengthBox}>
-                <View style={styles.strengthHeader}>
-                  <Text style={styles.strengthLabel}>Seguridad de la clave</Text>
-                  <Text style={[styles.strengthValue, { color: strength.color }]}>
-                    {strength.label}
-                  </Text>
-                </View>
-
-                <View style={styles.barsRow}>
-                  {[1, 2, 3, 4].map((segment) => (
-                    <View
-                      key={segment}
-                      style={[
-                        styles.barSegment,
-                        {
-                          backgroundColor:
-                            strength.score >= segment ? strength.color : Colors.border,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                <View style={styles.criteriaList}>
-                  {criteriaList.map((item) => (
-                    <View key={item.key} style={styles.criteriaRow}>
-                      <SymbolView
-                        name={
-                          item.met
-                            ? {
-                                ios: 'checkmark.circle.fill',
-                                android: 'check_circle',
-                                web: 'check_circle',
-                              }
-                            : {
-                                ios: 'circle',
-                                android: 'radio_button_unchecked',
-                                web: 'radio_button_unchecked',
-                              }
-                        }
-                        size={16}
-                        tintColor={item.met ? Colors.success : Colors.border}
-                      />
-                      <Text
-                        style={[styles.criteriaText, item.met ? styles.criteriaTextMet : null]}
-                      >
-                        {item.label}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
+              <PasswordStrengthGuide password={watchedPassword} />
 
               <AppButton
                 title="Guardar clave y continuar"
@@ -275,55 +175,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
-  },
-  strengthBox: {
-    backgroundColor: Colors.background,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 10,
-    marginBottom: 18,
-  },
-  strengthHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  strengthLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  strengthValue: {
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  barsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  barSegment: {
-    flex: 1,
-    height: 6,
-    borderRadius: 4,
-  },
-  criteriaList: {
-    gap: 6,
-    marginTop: 2,
-  },
-  criteriaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  criteriaText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  criteriaTextMet: {
-    color: Colors.text,
   },
   button: {
     marginTop: 4,
