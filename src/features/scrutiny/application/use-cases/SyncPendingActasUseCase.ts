@@ -1,4 +1,4 @@
-import { isDeviceOnline } from '@shared/infrastructure/network/networkMonitor';
+import { INetworkStatusService } from '@shared/domain/services/INetworkStatusService';
 import { IActaRepository } from '../../domain/repositories/IActaRepository';
 import { IOfflineActaQueueRepository } from '../../domain/repositories/IOfflineActaQueueRepository';
 
@@ -6,10 +6,11 @@ export class SyncPendingActasUseCase {
   constructor(
     private readonly actaRepo: IActaRepository,
     private readonly offlineQueueRepo: IOfflineActaQueueRepository,
+    private readonly networkStatus: INetworkStatusService,
   ) {}
 
   async execute(): Promise<{ synced: number; failed: number }> {
-    const online = await isDeviceOnline();
+    const online = await this.networkStatus.isOnline();
     if (!online) {
       return { synced: 0, failed: 0 };
     }

@@ -75,6 +75,7 @@ export class SupabaseAuthRepository implements IAuthRepository {
   async changeFirstLoginPassword(newPassword: string): Promise<void> {
     const { data: userData, error: authError } = await supabase.auth.updateUser({
       password: newPassword,
+      data: { temp_password: null },
     });
 
     if (authError || !userData.user) {
@@ -102,9 +103,23 @@ export class SupabaseAuthRepository implements IAuthRepository {
     input: CreateSubordinateUserInput,
     creatorId: string,
   ): Promise<UserProfile> {
+    if (!input.claveTemporal) {
+      throw new AuthError('No se generó la clave temporal de acceso.');
+    }
+
+    const rolLabel =
+      input.rol === 'coordinador_recinto' ? 'Coordinador de Recinto' : 'Veedor de Mesa';
+
     const { data: authData, error: signUpError } = await supabaseNoSessionClient.auth.signUp({
       email: input.email,
       password: input.claveTemporal,
+      options: {
+        data: {
+          temp_password: input.claveTemporal,
+          nombres: input.nombres,
+          rol: rolLabel,
+        },
+      },
     });
 
     if (signUpError || !authData.user) {

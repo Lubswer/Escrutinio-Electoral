@@ -15,7 +15,6 @@ const veedorSchema = z.object({
   apellidos: z.string().min(2, 'Ingresa los apellidos.'),
   telefono: z.string().min(9, 'Ingresa un teléfono válido.'),
   email: z.string().email('Ingresa un correo válido.'),
-  claveTemporal: z.string().min(8, 'Mínimo 8 caracteres.'),
 });
 
 type VeedorFormValues = z.infer<typeof veedorSchema>;
@@ -24,10 +23,7 @@ export default function CreateVeedorScreen() {
   const { user, createSubordinateUser, isCreatingUser, createUserError } = useAuth();
   const router = useRouter();
 
-  const [createdCredentials, setCreatedCredentials] = useState<{
-    email: string;
-    clave: string;
-  } | null>(null);
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
 
   const {
     control,
@@ -42,20 +38,19 @@ export default function CreateVeedorScreen() {
       apellidos: '',
       telefono: '',
       email: '',
-      claveTemporal: '',
     },
   });
 
   const onSubmit = async (values: VeedorFormValues) => {
     if (!user?.recintoId) return;
     try {
-      setCreatedCredentials(null);
+      setCreatedEmail(null);
       await createSubordinateUser({
         ...values,
         rol: 'veedor',
         recintoId: user.recintoId,
       });
-      setCreatedCredentials({ email: values.email, clave: values.claveTemporal });
+      setCreatedEmail(values.email);
       reset();
     } catch {
       // El error se muestra en createUserError
@@ -71,14 +66,13 @@ export default function CreateVeedorScreen() {
         <Text style={styles.title}>Registrar Veedor</Text>
       </View>
 
-      {createdCredentials ? (
+      {createdEmail ? (
         <View style={styles.successBanner}>
-          <Text style={styles.successTitle}>Veedor habilitado (aviso único S-11)</Text>
-          <Text style={styles.successText}>Correo: {createdCredentials.email}</Text>
-          <Text style={styles.successText}>Clave temporal: {createdCredentials.clave}</Text>
+          <Text style={styles.successTitle}>Veedor registrado</Text>
+          <Text style={styles.successText}>Correo: {createdEmail}</Text>
           <Text style={styles.successHint}>
-            Entrégale esta clave ahora; deberá cambiarla al iniciar sesión. Ya puedes asignarlo a
-            una o varias mesas.
+            Se envió automáticamente su clave temporal y el enlace de verificación al correo
+            registrado. Ya puedes asignarlo a una o varias mesas.
           </Text>
         </View>
       ) : null}
@@ -94,6 +88,7 @@ export default function CreateVeedorScreen() {
           control={control}
           name="cedula"
           label="Cédula (10 dígitos)"
+          placeholder="Ej: 1712345678"
           keyboardType="numeric"
           maxLength={10}
           errorMessage={errors.cedula?.message}
@@ -102,18 +97,21 @@ export default function CreateVeedorScreen() {
           control={control}
           name="nombres"
           label="Nombres completos"
+          placeholder="Ej: Carlos Andrés"
           errorMessage={errors.nombres?.message}
         />
         <AppInput
           control={control}
           name="apellidos"
           label="Apellidos completos"
+          placeholder="Ej: Gómez Salazar"
           errorMessage={errors.apellidos?.message}
         />
         <AppInput
           control={control}
           name="telefono"
           label="Teléfono celular"
+          placeholder="Ej: 0991234567"
           keyboardType="phone-pad"
           errorMessage={errors.telefono?.message}
         />
@@ -121,16 +119,10 @@ export default function CreateVeedorScreen() {
           control={control}
           name="email"
           label="Correo electrónico"
+          placeholder="Ej: veedor@correo.com"
           autoCapitalize="none"
           keyboardType="email-address"
           errorMessage={errors.email?.message}
-        />
-        <AppInput
-          control={control}
-          name="claveTemporal"
-          label="Clave temporal (mín. 8 caracteres)"
-          secureTextEntry
-          errorMessage={errors.claveTemporal?.message}
         />
 
         <AppButton title="Crear Veedor" onPress={handleSubmit(onSubmit)} loading={isCreatingUser} />

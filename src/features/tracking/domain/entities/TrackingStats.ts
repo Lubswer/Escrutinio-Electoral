@@ -19,6 +19,13 @@ export interface ResultadoCandidato {
   totalVotos: number;
 }
 
+export interface ResumenVotos {
+  votosValidos: number;
+  votosBlancos: number;
+  votosNulos: number;
+  totalSufragantes: number;
+}
+
 export interface ActaOrigenEvidencia {
   actaId: string;
   dignidad: TrackingDignidad;

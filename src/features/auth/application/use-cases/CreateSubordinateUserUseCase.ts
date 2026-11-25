@@ -4,8 +4,40 @@ import { IAuthRepository } from '../../domain/repositories/IAuthRepository';
 import { IIdentityVerificationService } from '../../domain/services/IIdentityVerificationService';
 
 /**
- * RF-01, RF-03, RF-04, ADR-11:
- * Creación jerárquica de cuentas subordinadas validando cédula y correo con APIs externas.
+ * Genera una clave temporal aleatoria fuerte y legible (sin caracteres ambiguos 0/O, 1/l/I)
+ * para enviarla automáticamente al correo del nuevo usuario (RF-02, RNF-03).
+ */
+function generateTemporaryPassword(): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const all = upper + lower + digits;
+  const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+
+  const raw = [
+    pick(upper),
+    pick(lower),
+    pick(digits),
+    pick(upper),
+    pick(lower),
+    pick(digits),
+    pick(all),
+    pick(all),
+  ];
+
+  // Mezcla simple Fisher-Yates
+  for (let i = raw.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [raw[i], raw[j]] = [raw[j], raw[i]];
+  }
+
+  return `Adn-${raw.join('')}`;
+}
+
+/**
+ * RF-01, RF-02, RF-03, RF-04, ADR-11:
+ * Creación jerárquica de cuentas subordinadas validando cédula y correo con APIs externas,
+ * con generación automática de clave temporal enviada por correo.
  */
 export class CreateSubordinateUserUseCase {
   constructor(
@@ -31,7 +63,9 @@ export class CreateSubordinateUserUseCase {
       }
     }
 
-    if (input.claveTemporal.length < 8) {
+    const claveTemporal = input.claveTemporal?.trim() || generateTemporaryPassword();
+
+    if (claveTemporal.length < 8) {
       throw new ValidationError('La clave temporal debe tener al menos 8 caracteres.');
     }
 
@@ -75,6 +109,7 @@ export class CreateSubordinateUserUseCase {
         nombres: input.nombres.trim(),
         apellidos: input.apellidos.trim(),
         telefono: input.telefono.trim(),
+        claveTemporal,
       },
       creator.id,
     );

@@ -4,6 +4,7 @@ import {
   ActaOrigenEvidencia,
   AvanceRecinto,
   ResultadoCandidato,
+  ResumenVotos,
   TrackingDignidad,
 } from '../../domain/entities/TrackingStats';
 import { ITrackingRepository } from '../../domain/repositories/ITrackingRepository';
@@ -70,6 +71,49 @@ export class SupabaseTrackingRepository implements ITrackingRepository {
     }
 
     return Array.from(grouped.values()).sort((a, b) => b.totalVotos - a.totalVotos);
+  }
+
+  async getResumenVotos(
+    dignidad: TrackingDignidad,
+    recintoId?: string | null,
+  ): Promise<ResumenVotos> {
+    let query = supabase
+      .from('actas')
+      .select('total_sufragantes, votos_blancos, votos_nulos, jrvs!inner(recinto_id)')
+      .eq('dignidad', dignidad);
+
+    if (recintoId) {
+      query = query.eq('jrvs.recinto_id', recintoId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new AppError(
+        'No se pudo cargar el resumen de blancos y nulos.',
+        'UNKNOWN_ERROR',
+        error,
+      );
+    }
+
+    let totalSufragantes = 0;
+    let votosBlancos = 0;
+    let votosNulos = 0;
+
+    for (const row of data ?? []) {
+      totalSufragantes += Number(row.total_sufragantes ?? 0);
+      votosBlancos += Number(row.votos_blancos ?? 0);
+      votosNulos += Number(row.votos_nulos ?? 0);
+    }
+
+    const votosValidos = Math.max(0, totalSufragantes - votosBlancos - votosNulos);
+
+    return {
+      votosValidos,
+      votosBlancos,
+      votosNulos,
+      totalSufragantes,
+    };
   }
 
   async getActasOrigen(): Promise<ActaOrigenEvidencia[]> {

@@ -3,6 +3,7 @@ import { AssignVeedorToJrvUseCase } from '../../application/use-cases/AssignVeed
 import { CreateJrvUseCase } from '../../application/use-cases/CreateJrvUseCase';
 import { CreateRecintoUseCase } from '../../application/use-cases/CreateRecintoUseCase';
 import { GetJrvsByRecintoUseCase } from '../../application/use-cases/GetJrvsByRecintoUseCase';
+import { GetMyAssignedJrvsUseCase } from '../../application/use-cases/GetMyAssignedJrvsUseCase';
 import { GetRecintosUseCase } from '../../application/use-cases/GetRecintosUseCase';
 import { GetVeedoresByRecintoUseCase } from '../../application/use-cases/GetVeedoresByRecintoUseCase';
 import { CreateJrvInput } from '../../domain/entities/Jrv';
@@ -17,6 +18,15 @@ const getJrvsByRecintoUseCase = new GetJrvsByRecintoUseCase(territoryRepo);
 const createJrvUseCase = new CreateJrvUseCase(territoryRepo);
 const getVeedoresByRecintoUseCase = new GetVeedoresByRecintoUseCase(territoryRepo);
 const assignVeedorToJrvUseCase = new AssignVeedorToJrvUseCase(territoryRepo);
+const getMyAssignedJrvsUseCase = new GetMyAssignedJrvsUseCase(territoryRepo);
+
+export function useVeedorJrvs(veedorId: string | undefined) {
+  return useQuery({
+    queryKey: ['territory', 'my-jrvs', veedorId],
+    queryFn: () => getMyAssignedJrvsUseCase.execute(veedorId ?? ''),
+    enabled: Boolean(veedorId),
+  });
+}
 
 export function useRecintos() {
   const queryClient = useQueryClient();

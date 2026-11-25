@@ -5,8 +5,9 @@ import { GetActasOrigenUseCase } from '../../application/use-cases/GetActasOrige
 import { GetAvanceRecintosUseCase } from '../../application/use-cases/GetAvanceRecintosUseCase';
 import { GetExitPollResultadosUseCase } from '../../application/use-cases/GetExitPollResultadosUseCase';
 import { GetReportedErrorsUseCase } from '../../application/use-cases/GetReportedErrorsUseCase';
+import { GetResumenVotosUseCase } from '../../application/use-cases/GetResumenVotosUseCase';
 import { SubscribeToEscrutinioRealtimeUseCase } from '../../application/use-cases/SubscribeToEscrutinioRealtimeUseCase';
-import { TrackingDignidad } from '../../domain/entities/TrackingStats';
+import { ResumenVotos, TrackingDignidad } from '../../domain/entities/TrackingStats';
 import { SentryApiErrorMonitorRepository } from '../../infrastructure/repositories/SentryApiErrorMonitorRepository';
 import { SupabaseTrackingRepository } from '../../infrastructure/repositories/SupabaseTrackingRepository';
 
@@ -15,9 +16,17 @@ const errorMonitorRepo = new SentryApiErrorMonitorRepository();
 
 const getAvanceRecintosUseCase = new GetAvanceRecintosUseCase(trackingRepo);
 const getExitPollResultadosUseCase = new GetExitPollResultadosUseCase(trackingRepo);
+const getResumenVotosUseCase = new GetResumenVotosUseCase(trackingRepo);
 const getActasOrigenUseCase = new GetActasOrigenUseCase(trackingRepo);
 const subscribeUseCase = new SubscribeToEscrutinioRealtimeUseCase(trackingRepo);
 const getReportedErrorsUseCase = new GetReportedErrorsUseCase(errorMonitorRepo);
+
+const EMPTY_RESUMEN: ResumenVotos = {
+  votosValidos: 0,
+  votosBlancos: 0,
+  votosNulos: 0,
+  totalSufragantes: 0,
+};
 
 export function useTracking(dignidad: TrackingDignidad, recintoId: string | null) {
   const queryClient = useQueryClient();
@@ -30,6 +39,11 @@ export function useTracking(dignidad: TrackingDignidad, recintoId: string | null
   const resultadosQuery = useQuery({
     queryKey: ['tracking', 'exit-poll', dignidad, recintoId ?? 'all'],
     queryFn: () => getExitPollResultadosUseCase.execute(dignidad, recintoId),
+  });
+
+  const resumenVotosQuery = useQuery({
+    queryKey: ['tracking', 'resumen-votos', dignidad, recintoId ?? 'all'],
+    queryFn: () => getResumenVotosUseCase.execute(dignidad, recintoId),
   });
 
   const actasOrigenQuery = useQuery({
@@ -51,11 +65,13 @@ export function useTracking(dignidad: TrackingDignidad, recintoId: string | null
   return {
     avanceRecintos: avanceQuery.data ?? [],
     resultados: resultadosQuery.data ?? [],
+    resumenVotos: resumenVotosQuery.data ?? EMPTY_RESUMEN,
     actasOrigen: actasOrigenQuery.data ?? [],
     isLoading: avanceQuery.isLoading || resultadosQuery.isLoading,
     refetchAll: () => {
       avanceQuery.refetch();
       resultadosQuery.refetch();
+      resumenVotosQuery.refetch();
       actasOrigenQuery.refetch();
     },
   };

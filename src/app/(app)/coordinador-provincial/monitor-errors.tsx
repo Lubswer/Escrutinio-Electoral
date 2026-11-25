@@ -1,11 +1,40 @@
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
+import { SentryIssueSummary } from '@features/tracking/domain/entities/TrackingStats';
+import { ErrorDetailModal } from '@features/tracking/presentation/components/ErrorDetailModal';
+import {
+  DayOption,
+  ErrorTimeFilterCarousel,
+} from '@features/tracking/presentation/components/ErrorTimeFilterCarousel';
+import { ErrorTimelineList } from '@features/tracking/presentation/components/ErrorTimelineList';
 import { useReportedErrors } from '@features/tracking/presentation/hooks/useTracking';
+import { AdnHero } from '@shared/ui/components/AdnHero';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { Colors } from '@shared/ui/theme/colors';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
+function toLocalDayKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDayLabel(dayKey: string): string {
+  const [y, m, d] = dayKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const todayKey = toLocalDayKey(new Date());
+  const formatted = date.toLocaleDateString('es-EC', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  return dayKey === todayKey ? `Hoy · ${formatted}` : formatted;
+}
 
 export default function MonitorErrorsScreen() {
   const router = useRouter();
@@ -20,7 +49,66 @@ export default function MonitorErrorsScreen() {
     sendTestNonFatalError,
     triggerTestCrash,
   } = useReportedErrors();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<SentryIssueSummary | null>(null);
+  const [selectedDayKey, setSelectedDayKey] = useState<string>('all');
+  const [selectedHour, setSelectedHour] = useState<number | null>(null);
+  const [showSimular, setShowSimular] = useState(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, []);
+
+  const dayOptions = useMemo<DayOption[]>(() => {
+    const uniqueDays = new Set<string>([toLocalDayKey(new Date())]);
+    for (const issue of issues) {
+      if (issue.lastSeen) {
+        const dt = new Date(issue.lastSeen);
+        if (!Number.isNaN(dt.getTime())) {
+          uniqueDays.add(toLocalDayKey(dt));
+        }
+      }
+    }
+    const sorted = Array.from(uniqueDays).sort((a, b) => (a < b ? 1 : -1));
+    return [
+      { key: 'all', label: 'Todos los días' },
+      ...sorted.map((key) => ({ key, label: formatDayLabel(key) })),
+    ];
+  }, [issues]);
+
+  const issuesInDay = useMemo(() => {
+    if (selectedDayKey === 'all') return issues;
+    return issues.filter((issue) => {
+      if (!issue.lastSeen) return false;
+      const dt = new Date(issue.lastSeen);
+      return !Number.isNaN(dt.getTime()) && toLocalDayKey(dt) === selectedDayKey;
+    });
+  }, [issues, selectedDayKey]);
+
+  const countsByHour = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const issue of issuesInDay) {
+      if (!issue.lastSeen) continue;
+      const dt = new Date(issue.lastSeen);
+      if (Number.isNaN(dt.getTime())) continue;
+      const h = dt.getHours();
+      map[h] = (map[h] ?? 0) + 1;
+    }
+    return map;
+  }, [issuesInDay]);
+
+  const filteredIssues = useMemo(() => {
+    if (selectedHour === null) return issuesInDay;
+    return issuesInDay.filter((issue) => {
+      if (!issue.lastSeen) return false;
+      const dt = new Date(issue.lastSeen);
+      return !Number.isNaN(dt.getTime()) && dt.getHours() === selectedHour;
+    });
+  }, [issuesInDay, selectedHour]);
 
   const handleNonFatalError = () => {
     sendTestNonFatalError({
@@ -28,158 +116,289 @@ export default function MonitorErrorsScreen() {
       userId: user?.id,
       online: isOnline,
     });
-    setFeedback(
-      isOnline
-        ? 'Error no fatal enviado a Sentry. Espera unos segundos y pulsa "Actualizar".'
-        : 'Sin conexión: el reporte quedó en caché local de Sentry y se enviará al recuperar red.',
-    );
+    void refetch();
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      void refetch();
+    }, 2800);
   };
 
   const handleControlledCrash = () => {
     triggerTestCrash('MonitorErrorsScreen');
   };
 
-  const openLocationInMaps = (coords: string) => {
-    const clean = coords.replace(/\s+/g, '');
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${clean}`);
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topRow}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Estabilidad y Fallos</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Estado del Monitoreo (Sentry · ADR-03)</Text>
-        <Text style={styles.desc}>
-          Conectividad: {isOnline ? 'En línea ✅' : 'Sin señal (Offline - Caché activo) ⚠️'}
-        </Text>
-        <Text style={styles.desc}>
-          Usuario en trazas: {user?.email} ({user?.rol})
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.cardTitle}>Fallos Reportados en Sentry ({issues.length})</Text>
-          <TouchableOpacity onPress={() => refetch()} disabled={isFetching}>
-            <Text style={styles.refreshLink}>{isFetching ? 'Actualizando...' : 'Actualizar'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{(error as Error).message}</Text>
-          </View>
-        ) : isLoading ? (
-          <Text style={styles.desc}>Consultando reportes en Sentry...</Text>
-        ) : issues.length === 0 ? (
-          <Text style={styles.desc}>No hay fallos registrados en el proyecto todavía.</Text>
-        ) : (
-          issues.map((issue) => (
-            <View key={issue.id} style={styles.issueRow}>
-              <Text style={styles.issueTitle}>{issue.title}</Text>
-              <Text style={styles.issueDetail}>Pantalla / Origen: {issue.screen}</Text>
-              <Text style={styles.issueDetail}>
-                Dispositivo: {issue.deviceModel} · {issue.osVersion}
-              </Text>
-              <Text style={styles.issueDetail}>Usuario afectado: {issue.affectedUser}</Text>
-              <Text style={styles.issueMeta}>
-                Ocurrencias: {issue.count} · Personas afectadas: {issue.userCount} · Nivel:{' '}
-                {issue.level.toUpperCase()}
-              </Text>
-              {issue.location ? (
-                <TouchableOpacity onPress={() => openLocationInMaps(issue.location!)}>
-                  <Text style={styles.mapLink}>📍 GPS: {issue.location} (Ver en mapa)</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.issueMeta}>📍 GPS: No disponible en este evento</Text>
-              )}
-              {issue.lastSeen ? (
-                <Text style={styles.issueMeta}>
-                  Último reporte: {new Date(issue.lastSeen).toLocaleString()}
-                </Text>
-              ) : null}
-              {issue.permalink ? (
-                <TouchableOpacity onPress={() => Linking.openURL(issue.permalink)}>
-                  <Text style={styles.openLink}>Ver traza completa en Sentry →</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ))
-        )}
-      </View>
-
-      {feedback ? (
-        <View style={styles.successBanner}>
-          <Text style={styles.successText}>{feedback}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Pruebas de Estabilidad (Rúbrica RF-17)</Text>
-        <AppButton title="Enviar error no fatal a Sentry" onPress={handleNonFatalError} />
-        <AppButton
-          title="Provocar fallo controlado (Crash)"
-          variant="danger"
-          onPress={handleControlledCrash}
+    <View style={styles.screen}>
+      <AdnHero patternId="adnGridMonitor" onBack={() => router.back()} paddingBottom={20}>
+        <ErrorTimeFilterCarousel
+          dayOptions={dayOptions}
+          selectedDayKey={selectedDayKey}
+          onSelectDay={setSelectedDayKey}
+          selectedHour={selectedHour}
+          onSelectHour={setSelectedHour}
+          countsByHour={countsByHour}
         />
-      </View>
-    </ScrollView>
+      </AdnHero>
+
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Título de pantalla */}
+        <View style={styles.titleRow}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>Estabilidad y Fallos</Text>
+            <Text style={styles.subtitle}>Reportes automáticos de la aplicación</Text>
+          </View>
+          <View style={[styles.statusPill, isOnline ? styles.statusOnline : styles.statusOffline]}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isOnline ? Colors.success : Colors.warning },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: isOnline ? Colors.success : Colors.warning },
+              ]}
+            >
+              {isOnline ? 'En línea' : 'Offline'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Card de Fallos Reportados en Sentry */}
+        <Animated.View entering={FadeInUp.duration(300)} style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleGroup}>
+              <Text style={styles.cardTitle}>Total</Text>
+              <View style={styles.countChip}>
+                <Text style={styles.countChipText}>{filteredIssues.length}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => refetch()}
+              disabled={isFetching}
+              activeOpacity={0.75}
+              style={styles.refreshBtn}
+            >
+              <SymbolView
+                name={{ ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' }}
+                size={15}
+                tintColor={Colors.primary}
+              />
+              <Text style={styles.refreshLink}>
+                {isFetching ? 'Actualizando...' : 'Actualizar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{(error as Error).message}</Text>
+            </View>
+          ) : isLoading ? (
+            <Text style={styles.desc}>Consultando reportes en Sentry...</Text>
+          ) : filteredIssues.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.desc}>
+                {issues.length === 0
+                  ? 'No hay fallos registrados en el proyecto todavía.'
+                  : 'No hay fallos registrados en el horario seleccionado.'}
+              </Text>
+            </View>
+          ) : (
+            <ErrorTimelineList issues={filteredIssues} onSelectIssue={setSelectedIssue} />
+          )}
+        </Animated.View>
+
+        {/* Card desplegable: Simular Errores */}
+        <Animated.View entering={FadeInUp.delay(100).duration(340)} style={styles.card}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => setShowSimular((prev) => !prev)}
+            style={styles.collapseHeader}
+          >
+            <Text style={styles.cardTitle}>Simular Errores</Text>
+            <SymbolView
+              name={
+                showSimular
+                  ? { ios: 'chevron.up', android: 'keyboard_arrow_up', web: 'keyboard_arrow_up' }
+                  : {
+                      ios: 'chevron.down',
+                      android: 'keyboard_arrow_down',
+                      web: 'keyboard_arrow_down',
+                    }
+              }
+              size={22}
+              tintColor={Colors.primary}
+            />
+          </TouchableOpacity>
+
+          {showSimular ? (
+            <Animated.View entering={FadeInDown.duration(200)} style={styles.testActions}>
+              <AppButton
+                title="Enviar error no fatal a Sentry"
+                variant="secondary"
+                onPress={handleNonFatalError}
+              />
+              <AppButton
+                title="Provocar fallo controlado (Crash)"
+                variant="danger"
+                onPress={handleControlledCrash}
+              />
+            </Animated.View>
+          ) : null}
+        </Animated.View>
+      </ScrollView>
+
+      <ErrorDetailModal issue={selectedIssue} onClose={() => setSelectedIssue(null)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flexGrow: 1,
     padding: 20,
-    paddingTop: 54,
     paddingBottom: 40,
-    backgroundColor: Colors.background,
     gap: 14,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backText: { fontSize: 16, fontWeight: '700', color: Colors.primary },
-  title: { fontSize: 20, fontWeight: '800', color: Colors.text },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  refreshLink: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  titleBlock: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  statusOnline: {
+    backgroundColor: Colors.successBg,
+    borderColor: Colors.success,
+  },
+  statusOffline: {
+    backgroundColor: Colors.warningBg,
+    borderColor: Colors.warning,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 14,
+    borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  countChip: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  countChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: Colors.primaryLight,
+  },
+  refreshLink: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  desc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
+  emptyBox: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  collapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  testActions: {
     gap: 10,
+    paddingTop: 4,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  desc: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
-  issueRow: {
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.background,
-    gap: 3,
-  },
-  issueTitle: { fontSize: 14, fontWeight: '800', color: Colors.danger },
-  issueDetail: { fontSize: 13, fontWeight: '600', color: Colors.text },
-  issueMeta: { fontSize: 12, color: Colors.textSecondary },
-  mapLink: { fontSize: 13, fontWeight: '700', color: Colors.success, marginTop: 2 },
-  openLink: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 4 },
   errorBanner: {
     backgroundColor: Colors.dangerBg,
     borderRadius: 10,
-    padding: 10,
+    padding: 12,
   },
-  errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600' },
-  successBanner: {
-    backgroundColor: Colors.successBg,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.success,
+  errorText: {
+    color: Colors.danger,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  successText: { color: Colors.success, fontSize: 14, fontWeight: '700' },
 });

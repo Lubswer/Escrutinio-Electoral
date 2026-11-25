@@ -1,32 +1,20 @@
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
 import { useTracking } from '@features/tracking/presentation/hooks/useTracking';
-import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
+import { AdnHero } from '@shared/ui/components/AdnHero';
 import { Colors } from '@shared/ui/theme/colors';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Href, useFocusEffect, useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-const logoAdn = require('@/assets/logoADN.png');
 const ecuadorLottie = require('@/assets/Ecuador.lottie');
 
 export default function CoordinadorProvincialHomeScreen() {
-  const { width: screenWidth } = useWindowDimensions();
   const { user, logout } = useAuth();
   const router = useRouter();
-  const { isOnline } = useNetworkStatus();
   const { avanceRecintos, actasOrigen } = useTracking('alcalde', null);
   const ecuadorLottieRef = useRef<LottieView>(null);
   const pendingExitPollNavRef = useRef(false);
@@ -77,54 +65,7 @@ export default function CoordinadorProvincialHomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Cabecera Ejecutiva ADN 7 */}
-        <LinearGradient
-          colors={[Colors.primaryMedium, Colors.primaryMedium, Colors.primaryMedium]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
-          <View style={[styles.heroGrid, { width: screenWidth }]} pointerEvents="none">
-            <Svg width={screenWidth} height="100%">
-              <Defs>
-                <Pattern id="adnGrid" width="28" height="28" patternUnits="userSpaceOnUse">
-                  <Path
-                    d="M 28 0 L 0 0 0 28"
-                    fill="none"
-                    stroke={Colors.primary}
-                    strokeWidth="1.2"
-                    strokeOpacity="0.45"
-                  />
-                </Pattern>
-              </Defs>
-              <Rect width={screenWidth} height="100%" fill="url(#adnGrid)" />
-            </Svg>
-          </View>
-
-          <View style={styles.topBar}>
-            <Image source={logoAdn} style={styles.logo} contentFit="contain" />
-
-            <View style={styles.topActions}>
-
-              <TouchableOpacity
-                onPress={logout}
-                activeOpacity={0.75}
-                style={styles.logoutChip}
-                accessibilityLabel="Cerrar sesión"
-              >
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-                    stroke="#FFFFFF"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-                <Text style={styles.logoutText}>Salir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
+        <AdnHero patternId="adnGrid" variant="home" onLogout={logout} paddingBottom={56}>
           <Animated.View entering={FadeInDown.duration(350)} style={styles.greetingBlock}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeText}>COORDINADOR PROVINCIAL</Text>
@@ -134,7 +75,7 @@ export default function CoordinadorProvincialHomeScreen() {
             </Text>
             <Text style={styles.jurisdiction}>Pichincha · Cantón Rumiñahui</Text>
           </Animated.View>
-        </LinearGradient>
+        </AdnHero>
 
         {/* Tarjeta flotante de KPIs rápidos */}
         <Animated.View entering={FadeInUp.duration(400)} style={styles.kpiCard}>
@@ -152,7 +93,7 @@ export default function CoordinadorProvincialHomeScreen() {
               <Text style={styles.kpiNumber}>
                 {jrvsCompletas}/{totalJrvs}
               </Text>
-              <Text style={styles.kpiCaption}>Mesas completas</Text>
+              <Text style={styles.kpiCaption}>Mesas</Text>
             </View>
             <View style={styles.kpiDivider} />
             <View style={styles.kpiStat}>

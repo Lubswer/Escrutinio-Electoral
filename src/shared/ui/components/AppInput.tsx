@@ -21,19 +21,30 @@ export function AppInput<T extends FieldValues>({
   ...rest
 }: AppInputProps<T>) {
   const [hidePassword, setHidePassword] = useState(Boolean(secureTextEntry));
+  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, isFocused ? styles.labelFocused : null]}>{label}</Text>
       <Controller
         control={control}
         name={name}
         render={({ field: { onChange, onBlur, value } }) => (
-          <View style={[styles.inputWrapper, errorMessage ? styles.inputError : null]}>
+          <View
+            style={[
+              styles.inputWrapper,
+              isFocused ? styles.inputFocused : null,
+              errorMessage ? styles.inputError : null,
+            ]}
+          >
             <TextInput
               style={[styles.input, style]}
-              placeholderTextColor={Colors.textSecondary}
-              onBlur={onBlur}
+              placeholderTextColor="#9CA3AF"
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setIsFocused(false);
+                onBlur();
+              }}
               onChangeText={onChange}
               value={value}
               secureTextEntry={secureTextEntry ? hidePassword : false}
@@ -79,35 +90,40 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  labelFocused: {
+    color: Colors.primary,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 2,
+  },
+  inputFocused: {
+    borderBottomColor: Colors.primaryMedium,
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 15,
     color: Colors.text,
   },
   eyeButton: {
     paddingLeft: 10,
   },
   inputError: {
-    borderColor: Colors.danger,
+    borderBottomColor: Colors.danger,
   },
   errorText: {
     marginTop: 5,
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.danger,
     fontWeight: '500',
   },

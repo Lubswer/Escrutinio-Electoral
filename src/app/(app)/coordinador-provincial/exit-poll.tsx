@@ -1,24 +1,33 @@
 import { TrackingDignidad } from '@features/tracking/domain/entities/TrackingStats';
+import { ActasOrigenCard } from '@features/tracking/presentation/components/ActasOrigenCard';
+import { AvanceRecintosCard } from '@features/tracking/presentation/components/AvanceRecintosCard';
+import { ExitPollChartCard } from '@features/tracking/presentation/components/ExitPollChartCard';
 import { useTracking } from '@features/tracking/presentation/hooks/useTracking';
+import { AdnHero } from '@shared/ui/components/AdnHero';
 import { Colors } from '@shared/ui/theme/colors';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  Linking,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 export default function ExitPollScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const [dignidad, setDignidad] = useState<TrackingDignidad>('alcalde');
   const [selectedRecintoId, setSelectedRecintoId] = useState<string | null>(null);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
 
-  const { avanceRecintos, resultados, actasOrigen, isLoading } = useTracking(
+  const { avanceRecintos, resultados, resumenVotos, actasOrigen, isLoading } = useTracking(
     dignidad,
     selectedRecintoId,
   );
@@ -31,270 +40,418 @@ export default function ExitPollScreen() {
     () => avanceRecintos.reduce((acc, r) => acc + r.jrvsCompletas, 0),
     [avanceRecintos],
   );
+  const jrvsFaltantes = Math.max(0, totalJrvs - jrvsCompletas);
+  const pctAvance = totalJrvs > 0 ? Math.round((jrvsCompletas / totalJrvs) * 100) : 0;
+
   const totalVotosValidos = useMemo(
     () => resultados.reduce((acc, c) => acc + c.totalVotos, 0),
     [resultados],
   );
 
-  const chartData = useMemo(
-    () =>
-      resultados.map((c) => ({
-        value: c.totalVotos,
-        label: c.siglas,
-        frontColor: c.colorHex,
-        topLabelComponent: () => <Text style={styles.barTopLabel}>{c.totalVotos}</Text>,
+  const recintoSlides = useMemo(
+    () => [
+      {
+        id: null as string | null,
+        nombre: 'Todos los recintos',
+        parroquia: 'Consolidado cantonal · Rumiñahui',
+        jrvsCompletas,
+        totalJrvs,
+      },
+      ...avanceRecintos.map((r) => ({
+        id: r.recintoId as string | null,
+        nombre: r.recintoNombre,
+        parroquia: r.parroquia,
+        jrvsCompletas: r.jrvsCompletas,
+        totalJrvs: r.totalJrvs,
       })),
-    [resultados],
+    ],
+    [avanceRecintos, jrvsCompletas, totalJrvs],
   );
 
-  const openInMaps = (lat: number, lng: number) => {
-    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    Linking.openURL(url);
+  const slideWidth = Math.max(260, screenWidth - 40);
+
+  const handleCarouselEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const idx = Math.round(offsetX / slideWidth);
+    const clamped = Math.max(0, Math.min(idx, recintoSlides.length - 1));
+    setActiveSlideIndex(clamped);
+    setSelectedRecintoId(recintoSlides[clamped]?.id ?? null);
+  };
+
+  const handleSelectSlide = (idx: number) => {
+    setActiveSlideIndex(idx);
+    setSelectedRecintoId(recintoSlides[idx]?.id ?? null);
+    carouselRef.current?.scrollTo({ x: idx * slideWidth, animated: true });
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topRow}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Exit Poll en Vivo</Text>
-        <View style={styles.liveBadge}>
-          <Text style={styles.liveText}>● EN VIVO</Text>
-        </View>
-      </View>
+    <View style={styles.screen}>
+      <AdnHero patternId="adnGridExitPoll" onBack={() => router.back()} />
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Avance General · Rumiñahui</Text>
-        <Text style={styles.summaryBig}>
-          {jrvsCompletas} / {totalJrvs} mesas completas (2/2 actas)
-        </Text>
-        <Text style={styles.summarySub}>
-          Faltan {Math.max(0, totalJrvs - jrvsCompletas)} mesas por completar · Votos válidos:{' '}
-          {totalVotosValidos}
-        </Text>
-      </View>
-
-      <View style={styles.tabsRow}>
-        {(['alcalde', 'prefecto'] as TrackingDignidad[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            onPress={() => setDignidad(tab)}
-            style={[styles.tabBtn, dignidad === tab ? styles.tabActive : null]}
-          >
-            <Text style={[styles.tabText, dignidad === tab ? styles.tabTextActive : null]}>
-              {tab === 'alcalde' ? 'Alcaldía (Rumiñahui)' : 'Prefectura (Pichincha)'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-        <TouchableOpacity
-          onPress={() => setSelectedRecintoId(null)}
-          style={[styles.filterChip, !selectedRecintoId ? styles.filterActive : null]}
-        >
-          <Text style={[styles.filterText, !selectedRecintoId ? styles.filterTextActive : null]}>
-            Todos los recintos
-          </Text>
-        </TouchableOpacity>
-        {avanceRecintos.map((r) => (
-          <TouchableOpacity
-            key={r.recintoId}
-            onPress={() => setSelectedRecintoId(r.recintoId)}
-            style={[
-              styles.filterChip,
-              selectedRecintoId === r.recintoId ? styles.filterActive : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedRecintoId === r.recintoId ? styles.filterTextActive : null,
-              ]}
-            >
-              {r.recintoNombre}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Votos por Candidato ({dignidad === 'alcalde' ? 'Alcalde' : 'Prefecto'})
-        </Text>
-        {isLoading ? (
-          <Text style={styles.metaText}>Cargando resultados...</Text>
-        ) : chartData.length > 0 ? (
-          <View style={styles.chartWrap}>
-            <BarChart
-              data={chartData}
-              barWidth={36}
-              spacing={20}
-              roundedTop
-              hideRules
-              noOfSections={4}
-              xAxisThickness={1}
-              yAxisThickness={1}
-              yAxisTextStyle={styles.axisText}
-              xAxisLabelTextStyle={styles.axisText}
-              isAnimated
-            />
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Título y badge EN VIVO */}
+        <View style={styles.titleRow}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>Exit Poll en Vivo</Text>
+            <Text style={styles.subtitle}>Resultados en tiempo real · Pichincha</Text>
           </View>
-        ) : (
-          <Text style={styles.metaText}>Aún no hay votos registrados.</Text>
-        )}
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>EN VIVO</Text>
+          </View>
+        </View>
 
-        <View style={styles.legendList}>
-          {resultados.map((c) => {
-            const pct =
-              totalVotosValidos > 0 ? ((c.totalVotos / totalVotosValidos) * 100).toFixed(1) : '0.0';
+        {/* Card Avance General Rumiñahui */}
+        <Animated.View entering={FadeInUp.duration(300)} style={styles.avanceCard}>
+          <View style={styles.avanceHeader}>
+            <Text style={styles.avanceLabel}>AVANCE GENERAL · RUMIÑAHUI</Text>
+            <Text style={styles.avancePercent}>{pctAvance}%</Text>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, pctAvance)}%` }]} />
+          </View>
+
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiStat}>
+              <Text style={styles.kpiNumber}>
+                {jrvsCompletas}/{totalJrvs}
+              </Text>
+              <Text style={styles.kpiCaption}>Completas (2/2)</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiStat}>
+              <Text style={styles.kpiNumber}>{jrvsFaltantes}</Text>
+              <Text style={styles.kpiCaption}>Pendientes</Text>
+            </View>
+            <View style={styles.kpiDivider} />
+            <View style={styles.kpiStat}>
+              <Text style={[styles.kpiNumber, { color: Colors.primary }]}>
+                {totalVotosValidos}
+              </Text>
+              <Text style={styles.kpiCaption}>Votos válidos</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Tabs unidos de Dignidad con fondo amarillo accent */}
+        <View style={styles.segmentedWrap}>
+          {(['alcalde', 'prefecto'] as TrackingDignidad[]).map((tab) => {
+            const isActive = dignidad === tab;
             return (
-              <View key={c.candidatoId} style={styles.legendRow}>
-                <View style={[styles.dot, { backgroundColor: c.colorHex }]} />
-                <View style={styles.legendInfo}>
-                  <Text style={styles.legendName}>{c.candidatoNombre}</Text>
-                  <Text style={styles.metaText}>
-                    Lista {c.listaNumero} · {c.siglas}
-                  </Text>
-                </View>
-                <Text style={styles.legendVotes}>
-                  {c.totalVotos} ({pct}%)
+              <TouchableOpacity
+                key={tab}
+                activeOpacity={0.85}
+                onPress={() => setDignidad(tab)}
+                style={[
+                  styles.segmentedBtn,
+                  isActive ? styles.segmentedBtnActive : styles.segmentedBtnInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentedText,
+                    isActive ? styles.segmentedTextActive : styles.segmentedTextInactive,
+                  ]}
+                >
+                  {tab === 'alcalde' ? 'Alcaldía (Rumiñahui)' : 'Prefectura (Pichincha)'}
                 </Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Avance por Recinto</Text>
-        {avanceRecintos.map((r) => (
-          <View key={r.recintoId} style={styles.recintoRow}>
-            <View style={styles.legendInfo}>
-              <Text style={styles.legendName}>{r.recintoNombre}</Text>
-              <Text style={styles.metaText}>{r.parroquia}</Text>
-            </View>
-            <Text style={styles.recintoCount}>
-              {r.jrvsCompletas}/{r.totalJrvs} completas
-            </Text>
+        {/* Carrusel de Recintos con indicadores de puntos */}
+        <View style={styles.carouselSection}>
+          <ScrollView
+            ref={carouselRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            onMomentumScrollEnd={handleCarouselEnd}
+          >
+            {recintoSlides.map((slide, idx) => {
+              const slidePct =
+                slide.totalJrvs > 0 ? Math.round((slide.jrvsCompletas / slide.totalJrvs) * 100) : 0;
+              return (
+                <TouchableOpacity
+                  key={slide.id ?? 'all'}
+                  activeOpacity={0.9}
+                  onPress={() => handleSelectSlide(idx)}
+                  style={[styles.carouselCard, { width: slideWidth }]}
+                >
+                  <View style={styles.carouselCardLeft}>
+                    <Text style={styles.carouselEyebrow}>
+                      {slide.id ? 'RECINTO SELECCIONADO' : 'FILTRO ACTIVO'}
+                    </Text>
+                    <Text style={styles.carouselTitle} numberOfLines={1}>
+                      {slide.nombre}
+                    </Text>
+                    <Text style={styles.carouselSub} numberOfLines={1}>
+                      {slide.parroquia}
+                    </Text>
+                  </View>
+                  <View style={styles.carouselBadge}>
+                    <Text style={styles.carouselBadgeValue}>
+                      {slide.jrvsCompletas}/{slide.totalJrvs}
+                    </Text>
+                    <Text style={styles.carouselBadgeLabel}>{slidePct}%</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.dotsRow}>
+            {recintoSlides.map((slide, idx) => {
+              const isCurrent = idx === activeSlideIndex;
+              return (
+                <TouchableOpacity
+                  key={slide.id ?? 'dot-all'}
+                  onPress={() => handleSelectSlide(idx)}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={[styles.dotIndicator, isCurrent ? styles.dotIndicatorActive : null]}
+                />
+              );
+            })}
           </View>
-        ))}
-      </View>
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Origen GPS de Actas Recibidas</Text>
-        {actasOrigen.length === 0 ? (
-          <Text style={styles.metaText}>Todavía no se han recibido actas.</Text>
-        ) : (
-          actasOrigen.map((a) => (
-            <View key={a.actaId} style={styles.origenRow}>
-              <Text style={styles.legendName}>
-                {a.recintoNombre} · Mesa #{a.numeroMesa} ({a.dignidad.toUpperCase()})
-              </Text>
-              <Text style={styles.metaText}>Registrado por: {a.registradoPorNombre}</Text>
-              <Text style={styles.metaText}>
-                GPS: {a.latitud.toFixed(5)}, {a.longitud.toFixed(5)} ·{' '}
-                {a.ubicacionVerificada ? 'Verificada ✅' : 'No verificada ⚠️'}
-              </Text>
-              <TouchableOpacity onPress={() => openInMaps(a.latitud, a.longitud)}>
-                <Text style={styles.mapLink}>Ver ubicación en Google Maps →</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </View>
-    </ScrollView>
+        <ExitPollChartCard
+          dignidad={dignidad}
+          resultados={resultados}
+          resumenVotos={resumenVotos}
+          totalVotosValidos={totalVotosValidos}
+          isLoading={isLoading}
+        />
+
+        <AvanceRecintosCard avanceRecintos={avanceRecintos} />
+
+        <ActasOrigenCard actasOrigen={actasOrigen} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     padding: 20,
-    paddingTop: 54,
     paddingBottom: 40,
-    backgroundColor: Colors.background,
     gap: 14,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backText: { fontSize: 16, fontWeight: '700', color: Colors.primary },
-  title: { fontSize: 19, fontWeight: '800', color: Colors.text },
-  liveBadge: {
-    backgroundColor: Colors.successBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-  },
-  liveText: { color: Colors.success, fontSize: 11, fontWeight: '800' },
-  summaryCard: { backgroundColor: Colors.primary, borderRadius: 16, padding: 18, gap: 4 },
-  summaryTitle: { color: Colors.primaryLight, fontSize: 13, fontWeight: '700' },
-  summaryBig: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
-  summarySub: { color: Colors.primaryLight, fontSize: 13 },
-  tabsRow: { flexDirection: 'row', gap: 8 },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  tabActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  tabText: { fontSize: 13, fontWeight: '700', color: Colors.text },
-  tabTextActive: { color: '#FFFFFF' },
-  filterRow: { gap: 8, paddingVertical: 2 },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-  filterText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  filterTextActive: { color: Colors.primary, fontWeight: '700' },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 10,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-  chartWrap: { paddingVertical: 12, alignItems: 'center' },
-  barTopLabel: { fontSize: 12, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  axisText: { fontSize: 11, color: Colors.textSecondary },
-  legendList: { gap: 8, marginTop: 6 },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.background,
-  },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  legendInfo: { flex: 1 },
-  legendName: { fontSize: 14, fontWeight: '700', color: Colors.text },
-  legendVotes: { fontSize: 14, fontWeight: '800', color: Colors.primary },
-  metaText: { fontSize: 13, color: Colors.textSecondary },
-  recintoRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.background,
+    gap: 12,
   },
-  recintoCount: { fontSize: 14, fontWeight: '700', color: Colors.primary },
-  origenRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.background,
+  titleBlock: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.successBg,
+    borderWidth: 1,
+    borderColor: Colors.success,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.success,
+  },
+  liveText: {
+    color: Colors.success,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  avanceCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    gap: 12,
+  },
+  avanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  avanceLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+    letterSpacing: 0.6,
+  },
+  avancePercent: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+  progressTrack: {
+    height: 9,
+    borderRadius: 6,
+    backgroundColor: Colors.primaryLight,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
+    backgroundColor: Colors.primaryMedium,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+  },
+  kpiStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  kpiNumber: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  kpiCaption: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  kpiDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: Colors.border,
+  },
+  segmentedWrap: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  segmentedBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentedBtnActive: {
+    backgroundColor: Colors.accent,
+  },
+  segmentedBtnInactive: {
+    backgroundColor: 'transparent',
+    opacity: 0.55,
+  },
+  segmentedText: {
+    fontSize: 13,
+  },
+  segmentedTextActive: {
+    fontWeight: '900',
+    color: Colors.primaryDark,
+  },
+  segmentedTextInactive: {
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  carouselSection: {
+    gap: 10,
+  },
+  carouselCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primaryLight,
+    gap: 12,
+  },
+  carouselCardLeft: {
+    flex: 1,
     gap: 2,
   },
-  mapLink: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 4 },
+  carouselEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primaryMedium,
+    letterSpacing: 0.6,
+  },
+  carouselTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  carouselSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  carouselBadge: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  carouselBadgeValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+  carouselBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primaryMedium,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  dotIndicator: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
+  },
+  dotIndicatorActive: {
+    width: 22,
+    backgroundColor: Colors.primary,
+  },
 });

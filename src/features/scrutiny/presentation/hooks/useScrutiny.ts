@@ -1,4 +1,4 @@
-import { SupabaseTerritoryRepository } from '@features/territory/infrastructure/repositories/SupabaseTerritoryRepository';
+import { NetInfoNetworkStatusService } from '@shared/infrastructure/network/networkMonitor';
 import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
@@ -13,21 +13,17 @@ import { ExpoMediaEvidenceService } from '../../infrastructure/services/ExpoMedi
 
 const actaRepo = new SupabaseActaRepository();
 const offlineQueueRepo = new AsyncStorageOfflineActaRepository();
-const territoryRepo = new SupabaseTerritoryRepository();
 const mediaService = new ExpoMediaEvidenceService();
+const networkStatusService = new NetInfoNetworkStatusService();
 
 const getCandidatosUseCase = new GetCandidatosUseCase(actaRepo);
 const getActasByJrvUseCase = new GetActasByJrvUseCase(actaRepo, offlineQueueRepo);
-const saveActaUseCase = new SaveActaUseCase(actaRepo, offlineQueueRepo);
-const syncPendingActasUseCase = new SyncPendingActasUseCase(actaRepo, offlineQueueRepo);
-
-export function useVeedorJrvs(veedorId: string | undefined) {
-  return useQuery({
-    queryKey: ['territory', 'my-jrvs', veedorId],
-    queryFn: () => territoryRepo.getMyAssignedJrvs(veedorId ?? ''),
-    enabled: Boolean(veedorId),
-  });
-}
+const saveActaUseCase = new SaveActaUseCase(actaRepo, offlineQueueRepo, networkStatusService);
+const syncPendingActasUseCase = new SyncPendingActasUseCase(
+  actaRepo,
+  offlineQueueRepo,
+  networkStatusService,
+);
 
 export function useCandidatos(dignidad?: Dignidad) {
   return useQuery({

@@ -1,4 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
+import { INetworkStatusService } from '@shared/domain/services/INetworkStatusService';
 import { onlineManager } from '@tanstack/react-query';
 
 /**
@@ -24,4 +25,10 @@ export function subscribeToNetworkStatus(onChange: (isOnline: boolean) => void):
   return NetInfo.addEventListener((state) => {
     onChange(Boolean(state.isConnected && state.isInternetReachable !== false));
   });
+}
+
+export class NetInfoNetworkStatusService implements INetworkStatusService {
+  isOnline(): Promise<boolean> {
+    return isDeviceOnline();
+  }
 }

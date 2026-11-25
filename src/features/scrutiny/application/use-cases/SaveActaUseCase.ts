@@ -1,5 +1,5 @@
 import { NetworkError, ValidationError } from '@shared/domain/errors/AppError';
-import { isDeviceOnline } from '@shared/infrastructure/network/networkMonitor';
+import { INetworkStatusService } from '@shared/domain/services/INetworkStatusService';
 import { Acta, SaveActaInput } from '../../domain/entities/Acta';
 import { IActaRepository } from '../../domain/repositories/IActaRepository';
 import { IOfflineActaQueueRepository } from '../../domain/repositories/IOfflineActaQueueRepository';
@@ -14,6 +14,7 @@ export class SaveActaUseCase {
   constructor(
     private readonly actaRepo: IActaRepository,
     private readonly offlineQueueRepo: IOfflineActaQueueRepository,
+    private readonly networkStatus: INetworkStatusService,
   ) {}
 
   async execute(input: SaveActaInput): Promise<Acta> {
@@ -32,7 +33,7 @@ export class SaveActaUseCase {
       votosPorCandidato: input.votosPorCandidato,
     });
 
-    const online = await isDeviceOnline();
+    const online = await this.networkStatus.isOnline();
     if (!online) {
       return this.offlineQueueRepo.enqueue(input);
     }

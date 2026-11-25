@@ -22,5 +22,5 @@ export interface CreateSubordinateUserInput {
   email: string;
   rol: Exclude<UserRole, 'coordinador_provincial'>;
   recintoId: string;
-  claveTemporal: string;
+  claveTemporal?: string;
 }
