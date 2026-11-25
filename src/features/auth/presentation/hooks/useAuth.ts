@@ -1,11 +1,13 @@
 import { setMonitoringUser } from '@shared/infrastructure/monitoring/sentry';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Linking from 'expo-linking';
 import { Href, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ChangeFirstPasswordUseCase } from '../../application/use-cases/ChangeFirstPasswordUseCase';
 import { CreateSubordinateUserUseCase } from '../../application/use-cases/CreateSubordinateUserUseCase';
 import { LoginUseCase } from '../../application/use-cases/LoginUseCase';
 import { RecoverPasswordUseCase } from '../../application/use-cases/RecoverPasswordUseCase';
+import { ResetPasswordWithOtpUseCase } from '../../application/use-cases/ResetPasswordWithOtpUseCase';
 import { CreateSubordinateUserInput, UserProfile, UserRole } from '../../domain/entities/User';
 import { SupabaseAuthRepository } from '../../infrastructure/repositories/SupabaseAuthRepository';
 import { ExternalIdentityService } from '../../infrastructure/services/ExternalIdentityService';
@@ -17,6 +19,7 @@ const identityService = new ExternalIdentityService();
 const loginUseCase = new LoginUseCase(authRepo);
 const changeFirstPasswordUseCase = new ChangeFirstPasswordUseCase(authRepo);
 const recoverPasswordUseCase = new RecoverPasswordUseCase(authRepo);
+const resetPasswordWithOtpUseCase = new ResetPasswordWithOtpUseCase(authRepo);
 const createSubordinateUserUseCase = new CreateSubordinateUserUseCase(authRepo, identityService);
 
 export function getHomeRouteForRole(role: UserRole): Href {
@@ -35,24 +38,57 @@ export function getHomeRouteForRole(role: UserRole): Href {
  */
 export function useAuthBootstrap() {
   const { setUser, setInitialized } = useAuthStore();
+  const router = useRouter();
 
   useEffect(() => {
-    authRepo
-      .getCurrentUser()
-      .then((currentUser) => {
-        setUser(currentUser);
-        if (currentUser) {
-          setMonitoringUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            rol: currentUser.rol,
-          });
-        }
-      })
-      .finally(() => {
-        setInitialized(true);
+    const applyDeepLink = async (url: string | null) => {
+      if (!url) return false;
+      const recoveredUser = await authRepo.handleAuthDeepLink(url);
+      if (!recoveredUser) return false;
+
+      setUser(recoveredUser);
+      setMonitoringUser({
+        id: recoveredUser.id,
+        email: recoveredUser.email,
+        rol: recoveredUser.rol,
       });
-  }, [setInitialized, setUser]);
+
+      if (recoveredUser.debeCambiarClave) {
+        router.replace('/(auth)/first-login-change-password' as Href);
+      } else {
+        router.replace(getHomeRouteForRole(recoveredUser.rol));
+      }
+      return true;
+    };
+
+    (async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        const handled = await applyDeepLink(initialUrl);
+        if (!handled) {
+          const currentUser = await authRepo.getCurrentUser();
+          setUser(currentUser);
+          if (currentUser) {
+            setMonitoringUser({
+              id: currentUser.id,
+              email: currentUser.email,
+              rol: currentUser.rol,
+            });
+          }
+        }
+      } finally {
+        setInitialized(true);
+      }
+    })();
+
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      void applyDeepLink(url);
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [router, setInitialized, setUser]);
 }
 
 export function useAuth() {
@@ -96,6 +132,15 @@ export function useAuth() {
     mutationFn: (email: string) => recoverPasswordUseCase.execute(email),
   });
 
+  const resetWithOtpMutation = useMutation({
+    mutationFn: (input: {
+      email: string;
+      token: string;
+      newPassword: string;
+      confirmPassword: string;
+    }) => resetPasswordWithOtpUseCase.execute(input),
+  });
+
   const createSubordinateUserMutation = useMutation({
     mutationFn: (input: CreateSubordinateUserInput) => {
       if (!user) throw new Error('Sesión no iniciada.');
@@ -122,10 +167,12 @@ export function useAuth() {
     logout,
     changeFirstPassword: changeFirstPasswordMutation.mutateAsync,
     recoverPassword: recoverPasswordMutation.mutateAsync,
+    resetPasswordWithOtp: resetWithOtpMutation.mutateAsync,
     createSubordinateUser: createSubordinateUserMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     isChangingPassword: changeFirstPasswordMutation.isPending,
     isRecovering: recoverPasswordMutation.isPending,
+    isResettingWithOtp: resetWithOtpMutation.isPending,
     isCreatingUser: createSubordinateUserMutation.isPending,
     loginError: loginMutation.error?.message ?? null,
     changePasswordError: changeFirstPasswordMutation.error?.message ?? null,

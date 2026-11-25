@@ -93,11 +93,7 @@ export default function ExitPollScreen() {
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>Exit Poll en Vivo</Text>
-            <Text style={styles.subtitle}>Resultados en tiempo real · Pichincha</Text>
-          </View>
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>EN VIVO</Text>
+            <Text style={styles.subtitle}>Resultados en tiempo real · Elecciones</Text>
           </View>
         </View>
 

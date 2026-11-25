@@ -24,12 +24,6 @@ export default function VeedorHomeScreen() {
           patternId="adnGridVeedor"
           variant="home"
           onLogout={logout}
-          rightExtra={
-            <View style={[styles.netPill, isOnline ? styles.netOnline : styles.netOffline]}>
-              <View style={styles.netDot} />
-              <Text style={styles.netText}>{isOnline ? 'En línea' : 'Offline'}</Text>
-            </View>
-          }
         >
           <Animated.View entering={FadeInDown.duration(350)} style={styles.greetingBlock}>
             <View style={styles.roleBadge}>
@@ -82,7 +76,11 @@ export default function VeedorHomeScreen() {
                 <Text style={styles.jrvHint}>Registra las 2 actas: Alcalde y Prefecto.</Text>
                 <AppButton
                   title="Registrar / Revisar Actas"
-                  onPress={() => router.push(`/(app)/veedor/scrutiny/${jrv.id}` as Href)}
+                  onPress={() =>
+                    router.push(
+                      `/(app)/veedor/scrutiny/${jrv.id}?numero=${jrv.numeroMesa}&genero=${encodeURIComponent(jrv.genero)}&recinto=${encodeURIComponent(jrv.recintoNombre ?? '')}` as Href,
+                    )
+                  }
                   style={styles.openBtn}
                 />
               </View>

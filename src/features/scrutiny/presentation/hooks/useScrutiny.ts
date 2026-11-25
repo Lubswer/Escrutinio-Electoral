@@ -2,6 +2,7 @@ import { NetInfoNetworkStatusService } from '@shared/infrastructure/network/netw
 import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
+import { GetActaPhotoUrlUseCase } from '../../application/use-cases/GetActaPhotoUrlUseCase';
 import { GetActasByJrvUseCase } from '../../application/use-cases/GetActasByJrvUseCase';
 import { GetCandidatosUseCase } from '../../application/use-cases/GetCandidatosUseCase';
 import { SaveActaUseCase } from '../../application/use-cases/SaveActaUseCase';
@@ -18,6 +19,7 @@ const networkStatusService = new NetInfoNetworkStatusService();
 
 const getCandidatosUseCase = new GetCandidatosUseCase(actaRepo);
 const getActasByJrvUseCase = new GetActasByJrvUseCase(actaRepo, offlineQueueRepo);
+const getActaPhotoUrlUseCase = new GetActaPhotoUrlUseCase(actaRepo);
 const saveActaUseCase = new SaveActaUseCase(actaRepo, offlineQueueRepo, networkStatusService);
 const syncPendingActasUseCase = new SyncPendingActasUseCase(
   actaRepo,
@@ -76,6 +78,9 @@ export function useSaveActa(jrvId: string) {
 
   const saveMutation = useMutation({
     mutationFn: (input: SaveActaInput) => saveActaUseCase.execute(input),
+    // SaveActaUseCase gestiona su propia cola offline en AsyncStorage; no pausar ni reintentar 3 veces en silencio
+    networkMode: 'always',
+    retry: 0,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scrutiny', 'actas', jrvId] });
       queryClient.invalidateQueries({ queryKey: ['scrutiny', 'pending-queue'] });
@@ -88,5 +93,6 @@ export function useSaveActa(jrvId: string) {
     saveError: saveMutation.error,
     capturePhotoAndCheckBlur: () => mediaService.captureAndValidatePhoto(),
     captureGps: () => mediaService.captureGpsLocation(),
+    getPhotoUrl: (fotoPath: string) => getActaPhotoUrlUseCase.execute(fotoPath),
   };
 }

@@ -1,6 +1,8 @@
 export interface CedulaVerificationResult {
   valid: boolean;
   fullName?: string;
+  firstName?: string;
+  lastName?: string;
   message?: string;
 }
 

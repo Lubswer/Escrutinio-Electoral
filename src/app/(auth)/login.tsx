@@ -1,11 +1,12 @@
+import { ForgotPasswordModal } from '@features/auth/presentation/components/ForgotPasswordModal';
 import { useAuth } from '@features/auth/presentation/hooks/useAuth';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
+import { FeedbackModal } from '@shared/ui/components/FeedbackModal';
 import { Colors } from '@shared/ui/theme/colors';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Href, Link } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -16,6 +17,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
@@ -33,9 +35,18 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
-  const { login, isLoggingIn, loginError } = useAuth();
+  const {
+    login,
+    isLoggingIn,
+    recoverPassword,
+    isRecovering,
+    resetPasswordWithOtp,
+    isResettingWithOtp,
+  } = useAuth();
   const lottieRef = useRef<LottieView>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [loginErrorMessage, setLoginErrorMessage] = useState<string | null>(null);
 
   // fr = 30 fps, op = 75 frames (2.5s). Reproduce hasta el segundo 1 (frame 30) y pausa ahí.
   useEffect(() => {
@@ -71,9 +82,12 @@ export default function LoginScreen() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
+      setLoginErrorMessage(null);
       await login(values);
-    } catch {
-      // El error se muestra en el banner inline vía loginError
+    } catch (err: any) {
+      setLoginErrorMessage(
+        err?.message ?? 'No se pudo iniciar sesión. Verifica tus credenciales.',
+      );
     }
   };
 
@@ -119,11 +133,6 @@ export default function LoginScreen() {
         <Animated.View entering={SlideInDown.duration(450)} style={styles.card}>
           <Text style={styles.badge}>PICHINCHA · RUMIÑAHUI</Text>
           <Text style={styles.title}>Control Electoral</Text>
-          {loginError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{loginError}</Text>
-            </View>
-          ) : null}
 
           <AppInput
             control={control}
@@ -151,9 +160,13 @@ export default function LoginScreen() {
             style={styles.submitButton}
           />
 
-          <Link href={'/(auth)/forgot-password' as Href} style={styles.forgotLink}>
-            ¿Olvidaste tu contraseña? Recupérala aquí
-          </Link>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => setShowForgotModal(true)}
+            style={styles.forgotBtn}
+          >
+            <Text style={styles.forgotLink}>¿Olvidaste tu contraseña? Recupérala aquí</Text>
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
 
@@ -167,6 +180,23 @@ export default function LoginScreen() {
           <Image source={logoAdn} style={styles.logoAdn} contentFit="contain" />
         </Animated.View>
       ) : null}
+
+      <ForgotPasswordModal
+        visible={showForgotModal}
+        isSendingEmail={isRecovering}
+        isResetting={isResettingWithOtp}
+        onClose={() => setShowForgotModal(false)}
+        onSubmitEmail={recoverPassword}
+        onResetWithOtp={resetPasswordWithOtp}
+      />
+
+      <FeedbackModal
+        visible={Boolean(loginErrorMessage)}
+        type="error"
+        title="No se pudo iniciar sesión"
+        message={loginErrorMessage ?? ''}
+        onClose={() => setLoginErrorMessage(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -175,7 +205,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: Colors.background },
   bgImage: {
     position: 'absolute',
-    top: -60,
+    top: -10,
     left: 0,
     right: 0,
     width: '100%',
@@ -262,8 +292,11 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 6,
   },
-  forgotLink: {
+  forgotBtn: {
     marginTop: 18,
+    alignItems: 'center',
+  },
+  forgotLink: {
     textAlign: 'center',
     color: Colors.primary,
     fontSize: 15,

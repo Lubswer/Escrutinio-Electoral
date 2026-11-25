@@ -32,7 +32,6 @@ interface AssignCoordinatorModalProps {
   visible: boolean;
   recintoNombre?: string;
   isLoading: boolean;
-  errorMessage?: string | null;
   onClose: () => void;
   onSubmit: (values: CoordFormValues) => Promise<void>;
 }
@@ -41,7 +40,6 @@ export function AssignCoordinatorModal({
   visible,
   recintoNombre,
   isLoading,
-  errorMessage,
   onClose,
   onSubmit,
 }: AssignCoordinatorModalProps) {
@@ -114,12 +112,6 @@ export function AssignCoordinatorModal({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.formContent}
           >
-            {errorMessage ? (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{errorMessage}</Text>
-              </View>
-            ) : null}
-
             <AppInput
               control={control}
               name="cedula"

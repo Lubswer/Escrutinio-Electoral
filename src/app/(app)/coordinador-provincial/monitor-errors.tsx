@@ -8,7 +8,6 @@ import {
 import { ErrorTimelineList } from '@features/tracking/presentation/components/ErrorTimelineList';
 import { useReportedErrors } from '@features/tracking/presentation/hooks/useTracking';
 import { AdnHero } from '@shared/ui/components/AdnHero';
-import { AppButton } from '@shared/ui/components/AppButton';
 import { useNetworkStatus } from '@shared/ui/hooks/useNetworkStatus';
 import { Colors } from '@shared/ui/theme/colors';
 import { useRouter } from 'expo-router';
@@ -146,24 +145,8 @@ export default function MonitorErrorsScreen() {
         {/* Título de pantalla */}
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
-            <Text style={styles.title}>Estabilidad y Fallos</Text>
-            <Text style={styles.subtitle}>Reportes automáticos de la aplicación</Text>
-          </View>
-          <View style={[styles.statusPill, isOnline ? styles.statusOnline : styles.statusOffline]}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: isOnline ? Colors.success : Colors.warning },
-              ]}
-            />
-            <Text
-              style={[
-                styles.statusPillText,
-                { color: isOnline ? Colors.success : Colors.warning },
-              ]}
-            >
-              {isOnline ? 'En línea' : 'Offline'}
-            </Text>
+            <Text style={styles.title}>Registro de Fallos</Text>
+            <Text style={styles.subtitle}>Reportes de la aplicación</Text>
           </View>
         </View>
 
@@ -236,17 +219,38 @@ export default function MonitorErrorsScreen() {
           </TouchableOpacity>
 
           {showSimular ? (
-            <Animated.View entering={FadeInDown.duration(200)} style={styles.testActions}>
-              <AppButton
-                title="Enviar error no fatal a Sentry"
-                variant="secondary"
+            <Animated.View entering={FadeInDown.duration(200)} style={styles.simCardsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={handleNonFatalError}
-              />
-              <AppButton
-                title="Provocar fallo controlado (Crash)"
-                variant="danger"
+                style={styles.simCard}
+              >
+                <SymbolView
+                  name={{ ios: 'exclamationmark.circle', android: 'bug_report', web: 'bug_report' }}
+                  size={24}
+                  tintColor={Colors.primary}
+                />
+                <Text style={styles.simCardTitle}>Error no fatal</Text>
+                <Text style={styles.simCardSub}>Reporte controlado</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
                 onPress={handleControlledCrash}
-              />
+                style={[styles.simCard, styles.simCardDanger]}
+              >
+                <SymbolView
+                  name={{
+                    ios: 'exclamationmark.triangle',
+                    android: 'report',
+                    web: 'report',
+                  }}
+                  size={24}
+                  tintColor={Colors.danger}
+                />
+                <Text style={[styles.simCardTitle, { color: Colors.danger }]}>Cierre fatal</Text>
+                <Text style={styles.simCardSub}>Simular crash</Text>
+              </TouchableOpacity>
             </Animated.View>
           ) : null}
         </Animated.View>
@@ -387,9 +391,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  testActions: {
+  simCardsRow: {
+    flexDirection: 'row',
     gap: 10,
     paddingTop: 4,
+  },
+  simCard: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    gap: 5,
+  },
+  simCardDanger: {
+    borderColor: '#FECACA',
+  },
+  simCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  simCardSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   errorBanner: {
     backgroundColor: Colors.dangerBg,

@@ -4,4 +4,5 @@ export interface IActaRepository {
   getCandidatos(dignidad?: Dignidad): Promise<Candidato[]>;
   getActasByJrv(jrvId: string): Promise<Acta[]>;
   saveActa(input: SaveActaInput): Promise<Acta>;
+  getPhotoUrl(fotoPath: string): Promise<string | null>;
 }

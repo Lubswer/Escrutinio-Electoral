@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AdnHero } from '@shared/ui/components/AdnHero';
 import { AppButton } from '@shared/ui/components/AppButton';
 import { AppInput } from '@shared/ui/components/AppInput';
+import { FeedbackModal, FeedbackType } from '@shared/ui/components/FeedbackModal';
 import { Colors } from '@shared/ui/theme/colors';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -30,15 +31,18 @@ export default function RecintosScreen() {
   const router = useRouter();
   const { recintos, isLoadingRecintos, createRecinto, isCreatingRecinto, createJrv, isCreatingJrv } =
     useRecintos();
-  const { createSubordinateUser, isCreatingUser, createUserError } = useAuth();
+  const { createSubordinateUser, isCreatingUser } = useAuth();
 
   const [showNewRecinto, setShowNewRecinto] = useState(false);
   const [selectedRecintoForCoord, setSelectedRecintoForCoord] = useState<{
     id: string;
     nombre: string;
   } | null>(null);
-  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    type: FeedbackType;
+    title: string;
+    message: string;
+  } | null>(null);
 
   const recintoForm = useForm<RecintoForm>({
     resolver: zodResolver(recintoSchema),
@@ -47,39 +51,60 @@ export default function RecintosScreen() {
 
   const onCreateRecinto = async (values: RecintoForm) => {
     try {
-      setFeedback(null);
       await createRecinto(values);
       recintoForm.reset();
       setShowNewRecinto(false);
-      setFeedback('Recinto creado correctamente.');
+      setFeedbackModal({
+        type: 'success',
+        title: 'Recinto creado',
+        message: 'El nuevo recinto electoral fue agregado correctamente.',
+      });
     } catch (err: any) {
-      setFeedback(err?.message ?? 'Error al crear recinto.');
+      setFeedbackModal({
+        type: 'error',
+        title: 'No se pudo crear el recinto',
+        message: err?.message ?? 'Ocurrió un error al guardar el recinto.',
+      });
     }
   };
 
   const onQuickAddJrv = async (recintoId: string, nextNumero: number, genero: JrvGenero) => {
     try {
-      setFeedback(null);
       await createJrv({ recintoId, numeroMesa: nextNumero, genero });
-      setFeedback(`Mesa #${nextNumero} (${genero}) agregada al recinto.`);
+      setFeedbackModal({
+        type: 'success',
+        title: 'Mesa agregada',
+        message: `La Mesa #${nextNumero} (${genero}) fue añadida al recinto.`,
+      });
     } catch (err: any) {
-      setFeedback(err?.message ?? 'No se pudo agregar la mesa.');
+      setFeedbackModal({
+        type: 'error',
+        title: 'No se pudo agregar la mesa',
+        message: err?.message ?? 'Verifica que el número de mesa no esté duplicado.',
+      });
     }
   };
 
   const onCreateCoord = async (values: CoordFormValues) => {
     if (!selectedRecintoForCoord) return;
     try {
-      setCreatedEmail(null);
       await createSubordinateUser({
         ...values,
         rol: 'coordinador_recinto',
         recintoId: selectedRecintoForCoord.id,
       });
-      setCreatedEmail(values.email);
       setSelectedRecintoForCoord(null);
-    } catch {
-      // El error aparece en createUserError
+      setFeedbackModal({
+        type: 'success',
+        title: 'Coordinador registrado',
+        message: `Se envió la clave temporal y el enlace de verificación a ${values.email}. Deberá cambiar su clave en el primer ingreso.`,
+      });
+    } catch (err: any) {
+      setFeedbackModal({
+        type: 'error',
+        title: 'No se pudo registrar',
+        message: err?.message ?? 'Verifica la cédula, los nombres y el correo e intenta nuevamente.',
+      });
     }
   };
 
@@ -109,23 +134,6 @@ export default function RecintosScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {feedback ? (
-          <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerText}>{feedback}</Text>
-          </View>
-        ) : null}
-
-        {createdEmail ? (
-          <View style={styles.successBanner}>
-            <Text style={styles.successTitle}>Coordinador registrado</Text>
-            <Text style={styles.successText}>Correo: {createdEmail}</Text>
-            <Text style={styles.successHint}>
-              Se envió automáticamente su clave temporal y el enlace de verificación al correo
-              registrado. Deberá cambiar su clave en el primer ingreso.
-            </Text>
-          </View>
-        ) : null}
 
         {showNewRecinto ? (
           <Animated.View entering={FadeInUp.duration(260)} style={styles.formCard}>
@@ -180,9 +188,16 @@ export default function RecintosScreen() {
         visible={Boolean(selectedRecintoForCoord)}
         recintoNombre={selectedRecintoForCoord?.nombre}
         isLoading={isCreatingUser}
-        errorMessage={createUserError}
         onClose={() => setSelectedRecintoForCoord(null)}
         onSubmit={onCreateCoord}
+      />
+
+      <FeedbackModal
+        visible={Boolean(feedbackModal)}
+        type={feedbackModal?.type ?? 'info'}
+        title={feedbackModal?.title}
+        message={feedbackModal?.message ?? ''}
+        onClose={() => setFeedbackModal(null)}
       />
     </View>
   );

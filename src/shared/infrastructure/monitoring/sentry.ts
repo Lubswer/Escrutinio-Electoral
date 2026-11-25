@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
@@ -78,8 +79,19 @@ export function captureAppError(error: unknown, context?: Record<string, unknown
 
 /**
  * Helper para la prueba controlada de fallos exigida en la rúbrica (RF-17).
+ * En el APK compilado ejecuta Sentry.nativeCrash() (cierre nativo real de Android).
+ * En Expo Go ejecuta un crash controlado de JS para mantener compatibilidad en desarrollo.
  */
 export function triggerControlledCrash(screenName: string) {
+  const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+  if (sentryDsn && Platform.OS !== 'web' && !isExpoGo) {
+    Sentry.setTag('screen', screenName);
+    Sentry.setTag('crash_type', 'native_controlled_test');
+    Sentry.nativeCrash();
+    return;
+  }
+
   const testError = new Error(`Fallo controlado de prueba desde ${screenName}`);
   captureAppError(testError, { screen: screenName, test: true });
   throw testError;

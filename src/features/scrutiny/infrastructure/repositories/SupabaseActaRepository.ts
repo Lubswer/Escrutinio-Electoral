@@ -2,6 +2,7 @@ import { AppError, ConflictError, NetworkError } from '@shared/domain/errors/App
 import { captureAppError } from '@shared/infrastructure/monitoring/sentry';
 import { supabase } from '@shared/infrastructure/supabase/client';
 import { File } from 'expo-file-system';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 import { Acta, Candidato, Dignidad, SaveActaInput } from '../../domain/entities/Acta';
 import { IActaRepository } from '../../domain/repositories/IActaRepository';
@@ -16,14 +17,24 @@ function isNetworkFailure(error: unknown): boolean {
   );
 }
 
-async function readLocalPhotoBytes(uri: string): Promise<Uint8Array> {
+async function readCompressedPhotoArrayBuffer(uri: string): Promise<ArrayBuffer> {
   if (Platform.OS === 'web') {
     const res = await fetch(uri);
-    const buffer = await res.arrayBuffer();
-    return new Uint8Array(buffer);
+    return res.arrayBuffer();
   }
-  const file = new File(uri);
-  return file.bytes();
+
+  // Comprimir y redimensionar a máx. 1280px (~150-250KB) para subida rápida en red móvil
+  const context = ImageManipulator.manipulate(uri).resize({ width: 1280 });
+  const imageRef = await context.renderAsync();
+  const compressed = await imageRef.saveAsync({
+    format: SaveFormat.JPEG,
+    compress: 0.72,
+  });
+  imageRef.release();
+
+  const file = new File(compressed.uri);
+  const bytes = await file.bytes();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 export class SupabaseActaRepository implements IActaRepository {
@@ -105,10 +116,10 @@ export class SupabaseActaRepository implements IActaRepository {
       return input.localPhotoUri;
     }
 
-    const bytes = await readLocalPhotoBytes(input.localPhotoUri);
+    const arrayBuffer = await readCompressedPhotoArrayBuffer(input.localPhotoUri);
     const storagePath = `${input.jrvId}/${input.dignidad}_${Date.now()}.jpg`;
 
-    const { error } = await supabase.storage.from('actas-fotos').upload(storagePath, bytes, {
+    const { error } = await supabase.storage.from('actas-fotos').upload(storagePath, arrayBuffer, {
       contentType: 'image/jpeg',
       upsert: true,
     });
@@ -123,11 +134,30 @@ export class SupabaseActaRepository implements IActaRepository {
     return storagePath;
   }
 
+  async getPhotoUrl(fotoPath: string): Promise<string | null> {
+    const { data, error } = await supabase.storage
+      .from('actas-fotos')
+      .createSignedUrl(fotoPath, 300);
+
+    if (error || !data?.signedUrl) {
+      return null;
+    }
+
+    return data.signedUrl;
+  }
+
   async saveActa(input: SaveActaInput): Promise<Acta> {
     try {
       const fotoPath = await this.uploadPhotoIfLocal(input);
       let savedId = input.actaId;
       let savedVersion = 1;
+
+      const safeNitidez =
+        input.fotoNitidezScore !== null && Number.isFinite(input.fotoNitidezScore)
+          ? Math.min(9999.99, Math.max(0, Number(input.fotoNitidezScore.toFixed(2))))
+          : null;
+      const safeLat = Number(input.latitud.toFixed(6));
+      const safeLng = Number(input.longitud.toFixed(6));
 
       if (input.actaId) {
         const nextVersion = input.expectedVersion + 1;
@@ -138,9 +168,9 @@ export class SupabaseActaRepository implements IActaRepository {
             votos_blancos: input.votosBlancos,
             votos_nulos: input.votosNulos,
             foto_path: fotoPath,
-            foto_nitidez_score: input.fotoNitidezScore,
-            latitud: input.latitud,
-            longitud: input.longitud,
+            foto_nitidez_score: safeNitidez,
+            latitud: safeLat,
+            longitud: safeLng,
             ubicacion_timestamp: input.ubicacionTimestamp,
             ubicacion_verificada: input.ubicacionVerificada,
             version: nextVersion,
@@ -173,9 +203,9 @@ export class SupabaseActaRepository implements IActaRepository {
               votos_blancos: input.votosBlancos,
               votos_nulos: input.votosNulos,
               foto_path: fotoPath,
-              foto_nitidez_score: input.fotoNitidezScore,
-              latitud: input.latitud,
-              longitud: input.longitud,
+              foto_nitidez_score: safeNitidez,
+              latitud: safeLat,
+              longitud: safeLng,
               ubicacion_timestamp: input.ubicacionTimestamp,
               ubicacion_verificada: input.ubicacionVerificada,
               version: 1,

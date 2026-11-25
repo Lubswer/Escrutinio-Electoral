@@ -3,6 +3,7 @@ export type JrvGenero = 'Femenino' | 'Masculino' | 'Mixta';
 export interface Jrv {
   id: string;
   recintoId: string;
+  recintoNombre?: string | null;
   numeroMesa: number;
   genero: JrvGenero;
   veedorId: string | null;

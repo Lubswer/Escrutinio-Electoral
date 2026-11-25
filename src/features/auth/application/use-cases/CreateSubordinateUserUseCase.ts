@@ -69,16 +69,14 @@ export class CreateSubordinateUserUseCase {
       throw new ValidationError('La clave temporal debe tener al menos 8 caracteres.');
     }
 
-    const [cedulaCheck, emailCheck] = await Promise.all([
-      this.identityService.verifyCedula(input.cedula.trim()),
-      this.identityService.verifyEmail(input.email.trim().toLowerCase()),
-    ]);
+    // 1. Validar primero cédula y coincidencia de nombres/apellidos antes de consumir la API de correo
+    const cedulaCheck = await this.identityService.verifyCedula(input.cedula.trim());
 
     if (!cedulaCheck.valid) {
       throw new ValidationError(cedulaCheck.message ?? 'La cédula ingresada no es válida.');
     }
 
-    if (cedulaCheck.fullName) {
+    if (cedulaCheck.firstName && cedulaCheck.lastName) {
       const normalize = (value: string) =>
         value
           .normalize('NFD')
@@ -86,9 +84,41 @@ export class CreateSubordinateUserUseCase {
           .toLowerCase()
           .trim();
 
-      const apiTokens = normalize(cedulaCheck.fullName).split(/\s+/);
-      const enteredTokens = normalize(`${input.nombres} ${input.apellidos}`).split(/\s+/);
-      const matches = enteredTokens.every((token) => apiTokens.includes(token));
+      const apiFirstTokens = normalize(cedulaCheck.firstName).split(/\s+/).filter(Boolean);
+      const apiLastTokens = normalize(cedulaCheck.lastName).split(/\s+/).filter(Boolean);
+      const enteredFirstTokens = normalize(input.nombres).split(/\s+/).filter(Boolean);
+      const enteredLastTokens = normalize(input.apellidos).split(/\s+/).filter(Boolean);
+
+      const firstMatches =
+        enteredFirstTokens.length > 0 &&
+        enteredFirstTokens.every((token) => apiFirstTokens.includes(token));
+      const lastMatches =
+        enteredLastTokens.length > 0 &&
+        enteredLastTokens.every((token) => apiLastTokens.includes(token));
+
+      if (!firstMatches || !lastMatches) {
+        throw new ValidationError(
+          `Los nombres y apellidos no coinciden con la cédula registrada (${cedulaCheck.fullName ?? `${cedulaCheck.firstName} ${cedulaCheck.lastName}`}).`,
+        );
+      }
+    } else if (cedulaCheck.fullName) {
+      const normalize = (value: string) =>
+        value
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      const apiTokens = normalize(cedulaCheck.fullName).split(/\s+/).filter(Boolean);
+      const enteredFirstTokens = normalize(input.nombres).split(/\s+/).filter(Boolean);
+      const enteredLastTokens = normalize(input.apellidos).split(/\s+/).filter(Boolean);
+      const distinctEntered = new Set([...enteredFirstTokens, ...enteredLastTokens]);
+
+      const matches =
+        enteredFirstTokens.every((t) => apiTokens.includes(t)) &&
+        enteredLastTokens.every((t) => apiTokens.includes(t)) &&
+        enteredLastTokens.some((t) => !enteredFirstTokens.includes(t)) &&
+        distinctEntered.size >= 2;
 
       if (!matches) {
         throw new ValidationError(
@@ -96,6 +126,9 @@ export class CreateSubordinateUserUseCase {
         );
       }
     }
+
+    // 2. Solo si cédula y nombres pasaron, validar el correo electrónico en la API externa
+    const emailCheck = await this.identityService.verifyEmail(input.email.trim().toLowerCase());
 
     if (!emailCheck.valid) {
       throw new ValidationError(emailCheck.message ?? 'El correo electrónico no pudo verificarse.');

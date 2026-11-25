@@ -6,5 +6,6 @@ export interface IAuthRepository {
   getCurrentUser(): Promise<UserProfile | null>;
   changeFirstLoginPassword(newPassword: string): Promise<void>;
   sendPasswordResetEmail(email: string): Promise<void>;
+  resetPasswordWithOtp(email: string, token: string, newPassword: string): Promise<void>;
   createSubordinateUser(input: CreateSubordinateUserInput, creatorId: string): Promise<UserProfile>;
 }

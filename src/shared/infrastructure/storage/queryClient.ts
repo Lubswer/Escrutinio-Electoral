@@ -13,8 +13,8 @@ export const queryClient = new QueryClient({
       retry: 2,
     },
     mutations: {
-      networkMode: 'offlineFirst',
-      retry: 3,
+      networkMode: 'always',
+      retry: 0,
     },
   },
 });

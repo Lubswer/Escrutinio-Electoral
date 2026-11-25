@@ -82,7 +82,9 @@ export class SupabaseTerritoryRepository implements ITerritoryRepository {
   async getJrvsByRecinto(recintoId: string): Promise<Jrv[]> {
     const { data, error } = await supabase
       .from('jrvs')
-      .select('id, recinto_id, numero_mesa, genero, veedor_id, profiles:veedor_id(nombres, apellidos)')
+      .select(
+        'id, recinto_id, numero_mesa, genero, veedor_id, profiles:veedor_id(nombres, apellidos), recintos(nombre)',
+      )
       .eq('recinto_id', recintoId)
       .order('genero', { ascending: true })
       .order('numero_mesa', { ascending: true });
@@ -93,9 +95,11 @@ export class SupabaseTerritoryRepository implements ITerritoryRepository {
 
     return (data ?? []).map((row) => {
       const veedor = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const recinto = Array.isArray(row.recintos) ? row.recintos[0] : row.recintos;
       return {
         id: row.id,
         recintoId: row.recinto_id,
+        recintoNombre: recinto?.nombre ?? null,
         numeroMesa: row.numero_mesa,
         genero: row.genero as JrvGenero,
         veedorId: row.veedor_id,
@@ -107,7 +111,7 @@ export class SupabaseTerritoryRepository implements ITerritoryRepository {
   async getMyAssignedJrvs(veedorId: string): Promise<Jrv[]> {
     const { data, error } = await supabase
       .from('jrvs')
-      .select('id, recinto_id, numero_mesa, genero, veedor_id')
+      .select('id, recinto_id, numero_mesa, genero, veedor_id, recintos(nombre)')
       .eq('veedor_id', veedorId)
       .order('numero_mesa', { ascending: true });
 
@@ -115,14 +119,18 @@ export class SupabaseTerritoryRepository implements ITerritoryRepository {
       throw new AppError('No se pudieron cargar tus mesas asignadas.', 'UNKNOWN_ERROR', error);
     }
 
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      recintoId: row.recinto_id,
-      numeroMesa: row.numero_mesa,
-      genero: row.genero as JrvGenero,
-      veedorId: row.veedor_id,
-      veedorNombre: null,
-    }));
+    return (data ?? []).map((row) => {
+      const recinto = Array.isArray(row.recintos) ? row.recintos[0] : row.recintos;
+      return {
+        id: row.id,
+        recintoId: row.recinto_id,
+        recintoNombre: recinto?.nombre ?? null,
+        numeroMesa: row.numero_mesa,
+        genero: row.genero as JrvGenero,
+        veedorId: row.veedor_id,
+        veedorNombre: null,
+      };
+    });
   }
 
   async createJrv(input: CreateJrvInput): Promise<Jrv> {
